@@ -1,3 +1,7 @@
+#![feature(core, unicode, collections)]
+use parser::Parser;
+
+mod parser;
 mod ast;
 mod errors;
 
