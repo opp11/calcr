@@ -31,6 +31,8 @@ pub enum AstFunc {
     Qbrt,
     Abs,
     Exp,
+    Ln,
+    Log,
 }
 
 #[derive(Debug)]

@@ -20,6 +20,7 @@
 //!           |  { Digit }
 //!
 //! Function ==> "sin" | "cos" | "tan" | "asin" | "acos" | "atan" | "sqrt" | "qbrt" | "abs" | "exp"
+//!           |  "ln" | "log"
 //!
 //! Constant ==> "pi" | "e" | "phi"
 //!
@@ -217,6 +218,8 @@ impl Parser {
             "qbrt" => Some(Qbrt),
             "abs" => Some(Abs),
             "exp" => Some(Exp),
+            "ln" => Some(Ln),
+            "log" => Some(Log),
             _ => {
                 // no function found, so restore the previous position
                 self.pos = pre_pos;
