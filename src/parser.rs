@@ -57,6 +57,7 @@ impl Parser {
         let mut lhs = try!(self.parse_term());
         self.consume_whitespace();
         while self.peek_char() == Some('+') || self.peek_char() == Some('-') {
+            let op_pos = self.pos;
             let op = if self.consume_char() == '+' {
                 Plus
             } else {
@@ -66,6 +67,7 @@ impl Parser {
             let rhs = try!(self.parse_term());
             lhs = Ast {
                 val: Op(op),
+                span: (op_pos, op_pos),
                 branches: Binary(Box::new(lhs), Box::new(rhs)),
             };
             self.consume_whitespace();
@@ -74,11 +76,14 @@ impl Parser {
     }
 
     fn parse_term(&mut self) -> CResult<Ast> {
+        let begin_pos = self.pos;
         if let Some(func) = self.consume_function() {
+            let end_pos = self.pos;
             self.consume_whitespace();
             let arg = try!(self.parse_product());
             Ok(Ast {
                 val: Func(func),
+                span: (begin_pos, end_pos),
                 branches: Unary(Box::new(arg)),
             })
         } else {
@@ -90,6 +95,7 @@ impl Parser {
         let mut lhs = try!(self.parse_factor());
         self.consume_whitespace();
         while self.peek_char() == Some('*') || self.peek_char() == Some('/') {
+            let op_pos = self.pos;
             let op = if self.consume_char() == '*' {
                 Mult
             } else {
@@ -99,6 +105,7 @@ impl Parser {
             let rhs = try!(self.parse_factor());
             lhs = Ast {
                 val: Op(op),
+                span: (op_pos, op_pos),
                 branches: Binary(Box::new(lhs), Box::new(rhs)),
             };
             self.consume_whitespace();
@@ -108,19 +115,23 @@ impl Parser {
 
     fn parse_factor(&mut self) -> CResult<Ast> {
         if self.peek_char() == Some('-') {
+            let op_pos = self.pos;
             self.consume_char();
             let rhs = try!(self.parse_factor());
             Ok(Ast {
                 val: Op(Neg),
+                span: (op_pos, op_pos),
                 branches: Unary(Box::new(rhs)),
             })
         } else {
             let lhs = try!(self.parse_exponent());
             if self.peek_char() == Some('^') {
+                let op_pos = self.pos;
                 self.consume_char();
                 let rhs = try!(self.parse_factor());
                 Ok(Ast {
                     val: Op(Pow),
+                    span: (op_pos, op_pos),
                     branches: Binary(Box::new(lhs), Box::new(rhs)),
                 })
             } else {
@@ -137,10 +148,12 @@ impl Parser {
         // current `out` at the bottum of the tree at each step, so it is easier if we have access
         // to each node as we create them.
         while self.peek_char() == Some('!') {
+            let op_pos = self.pos;
             self.consume_char();
             self.consume_whitespace();
             out = Ast {
                 val: Op(Fact),
+                span: (op_pos, op_pos),
                 branches: Unary(Box::new(out)),
             };
         }
@@ -184,22 +197,25 @@ impl Parser {
                     self.abs_level -= 1;
                     Ok(Ast {
                         val: Func(Abs),
+                        span: (pre_pos, pre_pos),
                         branches: Unary(Box::new(eq)),
                     })
                 }
             },
             Some(ch) if ch.is_alphabetic() => {
-                let cnst = match self.consume_while(|ch| ch.is_alphabetic()).as_slice() {
+                let cnst_str = self.consume_while(|ch| ch.is_alphabetic());
+                let cnst = match cnst_str.as_slice() {
                     "pi" => Pi,
                     "e" => E,
                     "phi" => Phi,
-                    val => return Err(CError {
-                        desc: format!("Invalid function or constant: {}", val),
-                        span: (self.pos - val.len(), self.pos),
+                    _ => return Err(CError {
+                        desc: format!("Invalid function or constant: {}", cnst_str),
+                        span: (self.pos - cnst_str.len(), self.pos),
                     }),
                 };
                 Ok(Ast {
                     val: Const(cnst),
+                    span: (self.pos - cnst_str.len(), self.pos),
                     branches: Leaf,
                 })
             },
@@ -208,6 +224,7 @@ impl Parser {
                 if let Ok(num) = num_str.parse::<f64>() {
                     Ok(Ast {
                         val: Num(num),
+                        span: (self.pos - num_str.len(), self.pos),
                         branches: Leaf,
                     })
                 } else {

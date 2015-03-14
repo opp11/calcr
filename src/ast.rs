@@ -1,6 +1,7 @@
 #[derive(Debug)]
 pub struct Ast {
     pub val: AstVal,
+    pub span: (usize, usize),
     pub branches: AstBranch,
 }
 
