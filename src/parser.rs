@@ -72,7 +72,19 @@ impl Parser {
             };
             self.consume_whitespace();
         }
-        Ok(lhs)
+        if self.peek_char() == Some(')') && self.paren_level < 1 {
+            Err(CError {
+                desc: format!("Missing opening parentheses"),
+                span: (self.pos, self.pos),
+            })
+        } else if self.peek_char() == Some('|') && self.abs_level < 1 {
+            Err(CError {
+                desc: format!("Missing opening abs delimiter"),
+                span: (self.pos, self.pos),
+            })
+        } else {
+            Ok(lhs)
+        }
     }
 
     fn parse_term(&mut self) -> CResult<Ast> {
