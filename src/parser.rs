@@ -234,20 +234,8 @@ impl Parser {
                     })
                 }
             },
-            Some(')') => {
-                Err(CError {
-                    desc: format!("Missing opening parentheses"),
-                    span: (self.pos, self.pos),
-                })
-            },
-            Some(ch) => {
-                Err(CError {
-                    desc: format!("Illegal character: {}", ch),
-                    span: (self.pos, self.pos),
-                })
-            },
             _ => Err(CError {
-                desc: format!("Unexpected end of equation"),
+                desc: format!("Expected number or constant"),
                 span: (self.pos, self.pos),
             }),
         }
