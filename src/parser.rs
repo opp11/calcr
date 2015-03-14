@@ -148,60 +148,91 @@ impl Parser {
     }
 
     fn parse_number(&mut self) -> CResult<Ast> {
-        if self.peek_char() == Some('(') {
-            // store the current pos in case we need to report a paren error
-            let pre_pos = self.pos;
-            self.consume_char();
-            self.consume_whitespace();
-            self.paren_level += 1;
-            let eq = try!(self.parse_equation());
+        match self.peek_char() {
+            Some('(') => {
+                // store the current pos in case we need to report a paren error
+                let pre_pos = self.pos;
+                self.consume_char();
+                self.consume_whitespace();
+                self.paren_level += 1;
+                let eq = try!(self.parse_equation());
 
-            if self.eof() || self.consume_char() != ')' {
-                Err(CError {
-                    desc: "Missing closing parentheses".to_string(),
-                    span: (pre_pos, pre_pos),
-                })
-            } else {
-                self.paren_level -= 1;
-                Ok(eq)
-            }
-        } else if self.peek_char() == Some('|') {
-            // store the current pos in case we need to report an abs delim error
-            let pre_pos = self.pos;
-            self.consume_char();
-            self.consume_whitespace();
-            self.abs_level += 1;
-            let eq = try!(self.parse_equation());
+                if self.eof() || self.consume_char() != ')' {
+                    Err(CError {
+                        desc: "Missing closing parentheses".to_string(),
+                        span: (pre_pos, pre_pos),
+                    })
+                } else {
+                    self.paren_level -= 1;
+                    Ok(eq)
+                }
+            },
+            Some('|') => {
+                // store the current pos in case we need to report an abs delim error
+                let pre_pos = self.pos;
+                self.consume_char();
+                self.consume_whitespace();
+                self.abs_level += 1;
+                let eq = try!(self.parse_equation());
 
-            if self.eof() || self.consume_char() != '|' {
-                Err(CError {
-                    desc: "Missing closing abs delimiter".to_string(),
-                    span: (pre_pos, pre_pos),
-                })
-            } else {
-                self.abs_level -= 1;
+                if self.eof() || self.consume_char() != '|' {
+                    Err(CError {
+                        desc: "Missing closing abs delimiter".to_string(),
+                        span: (pre_pos, pre_pos),
+                    })
+                } else {
+                    self.abs_level -= 1;
+                    Ok(Ast {
+                        val: Func(Abs),
+                        branches: Unary(Box::new(eq)),
+                    })
+                }
+            },
+            Some(ch) if ch.is_alphabetic() => {
+                let cnst = match self.consume_while(|ch| ch.is_alphabetic()).as_slice() {
+                    "pi" => Pi,
+                    "e" => E,
+                    "phi" => Phi,
+                    val => return Err(CError {
+                        desc: format!("Invalid function or constant: {}", val),
+                        span: (self.pos - val.len(), self.pos),
+                    }),
+                };
                 Ok(Ast {
-                    val: Func(Abs),
-                    branches: Unary(Box::new(eq)),
-                })
-            }
-        } else if let Some(cnst) = self.consume_constant() {
-            Ok(Ast {
-                val: Const(cnst),
-                branches: Leaf,
-            })
-        } else {
-            if let Ok(num) = self.consume_while(|ch| ch.is_numeric()).parse::<f64>() {
-                Ok(Ast {
-                    val: Num(num),
+                    val: Const(cnst),
                     branches: Leaf,
                 })
-            } else {
+            },
+            Some(ch) if ch.is_numeric() => {
+                let num_str = self.consume_while(|ch| ch.is_numeric() || ch == '.');
+                if let Ok(num) = num_str.parse::<f64>() {
+                    Ok(Ast {
+                        val: Num(num),
+                        branches: Leaf,
+                    })
+                } else {
+                    Err(CError {
+                        desc: format!("Invalid number: {}", num_str),
+                        span: (self.pos - num_str.len(), self.pos),
+                    })
+                }
+            },
+            Some(')') => {
                 Err(CError {
-                    desc: "Missing number or constant".to_string(),
+                    desc: format!("Missing opening parentheses"),
                     span: (self.pos, self.pos),
                 })
-            }
+            },
+            Some(ch) => {
+                Err(CError {
+                    desc: format!("Illegal character: {}", ch),
+                    span: (self.pos, self.pos),
+                })
+            },
+            _ => Err(CError {
+                desc: format!("Unexpected end of equation"),
+                span: (self.pos, self.pos),
+            }),
         }
     }
 
@@ -225,20 +256,6 @@ impl Parser {
                 self.pos = pre_pos;
                 None
             },
-        }
-    }
-
-    fn consume_constant(&mut self) -> Option<AstConst> {
-        let pre_pos = self.pos;
-        match self.consume_while(|ch| ch.is_alphabetic()).as_slice() {
-            "pi" => Some(Pi),
-            "e" => Some(E),
-            "phi" => Some(Phi),
-            _ => {
-                // no constant found, so restore the previous position
-                self.pos = pre_pos;
-                None
-            }
         }
     }
 
