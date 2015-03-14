@@ -28,7 +28,7 @@
 
 use std::str::CharRange;
 use errors::{CResult, CError};
-use ast::{Ast, AstFunc, AstConst};
+use ast::{Ast, AstFunc};
 use ast::AstBranch::*;
 use ast::AstVal::*;
 use ast::AstFunc::*;
