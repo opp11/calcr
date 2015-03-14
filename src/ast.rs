@@ -29,7 +29,6 @@ pub enum AstFunc {
     Acos,
     Atan,
     Sqrt,
-    Qbrt,
     Abs,
     Exp,
     Ln,

@@ -19,7 +19,7 @@
 //!           |  Constant
 //!           |  { Digit }
 //!
-//! Function ==> "sin" | "cos" | "tan" | "asin" | "acos" | "atan" | "sqrt" | "qbrt" | "abs" | "exp"
+//! Function ==> "sin" | "cos" | "tan" | "asin" | "acos" | "atan" | "sqrt" | "abs" | "exp"
 //!           |  "ln" | "log"
 //!
 //! Constant ==> "pi" | "e" | "phi"
@@ -263,7 +263,6 @@ impl Parser {
             "acos" => Some(Acos),
             "atan" => Some(Atan),
             "sqrt" => Some(Sqrt),
-            "qbrt" => Some(Qbrt),
             "abs" => Some(Abs),
             "exp" => Some(Exp),
             "ln" => Some(Ln),
