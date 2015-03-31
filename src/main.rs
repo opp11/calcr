@@ -1,4 +1,4 @@
-#![feature(core, unicode, collections)]
+#![feature(core, convert, str_char)]
 use parser::Parser;
 
 mod parser;

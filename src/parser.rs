@@ -26,7 +26,6 @@
 //!
 //! Digit    ==> "0".."9"
 
-use std::str::CharRange;
 use errors::{CResult, CError};
 use ast::{Ast, AstFunc};
 use ast::AstBranch::*;
@@ -216,7 +215,7 @@ impl Parser {
             },
             Some(ch) if ch.is_alphabetic() => {
                 let cnst_str = self.consume_while(|ch| ch.is_alphabetic());
-                let cnst = match cnst_str.as_slice() {
+                let cnst = match cnst_str.as_ref() {
                     "pi" => Pi,
                     "e" => E,
                     "phi" => Phi,
@@ -255,7 +254,7 @@ impl Parser {
 
     fn consume_function(&mut self) -> Option<AstFunc> {
         let pre_pos = self.pos;
-        match self.consume_while(|ch| ch.is_alphabetic()).as_slice() {
+        match self.consume_while(|ch| ch.is_alphabetic()).as_ref() {
             "sin" => Some(Sin),
             "cos" => Some(Cos),
             "tan" => Some(Tan),
@@ -280,7 +279,7 @@ impl Parser {
         if self.eof() {
             None
         } else {
-            Some(self.input.char_at(self.pos).to_lowercase())
+            self.input.char_at(self.pos).to_lowercase().next()
         }
     }
 
@@ -289,9 +288,9 @@ impl Parser {
     /// # Panics
     /// This function panics if there are no more chars to consume
     fn consume_char(&mut self) -> char {
-        let CharRange { ch, next } = self.input.char_range_at(self.pos);
-        self.pos = next;
-        ch.to_lowercase()
+        let ch = self.input.char_at(self.pos);
+        self.pos += ch.len_utf8();
+        ch.to_lowercase().next().unwrap()
     }
 
     /// Consumes `char`s long as `pred` returns true and we are not eof
