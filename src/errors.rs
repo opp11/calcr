@@ -1,7 +1,7 @@
 #[derive(Debug)]
-pub struct CError {
+pub struct CalcrError {
 	pub desc: String,
 	pub span: (usize, usize)
 }
 
-pub type CResult<T> = Result<T, CError>;
+pub type CalcrResult<T> = Result<T, CalcrError>;

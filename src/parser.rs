@@ -26,7 +26,7 @@
 //!
 //! Digit    ==> "0".."9"
 
-use errors::{CResult, CError};
+use errors::{CalcrResult, CalcrError};
 use ast::{Ast, AstFunc};
 use ast::AstBranch::*;
 use ast::AstVal::*;
@@ -52,7 +52,7 @@ impl Parser {
         }
     }
 
-    pub fn parse_equation(&mut self) -> CResult<Ast> {
+    pub fn parse_equation(&mut self) -> CalcrResult<Ast> {
         let mut lhs = try!(self.parse_term());
         self.consume_whitespace();
         while self.peek_char() == Some('+') || self.peek_char() == Some('-') {
@@ -72,12 +72,12 @@ impl Parser {
             self.consume_whitespace();
         }
         if self.peek_char() == Some(')') && self.paren_level < 1 {
-            Err(CError {
+            Err(CalcrError {
                 desc: format!("Missing opening parentheses"),
                 span: (self.pos, self.pos),
             })
         } else if self.peek_char() == Some('|') && self.abs_level < 1 {
-            Err(CError {
+            Err(CalcrError {
                 desc: format!("Missing opening abs delimiter"),
                 span: (self.pos, self.pos),
             })
@@ -86,7 +86,7 @@ impl Parser {
         }
     }
 
-    fn parse_term(&mut self) -> CResult<Ast> {
+    fn parse_term(&mut self) -> CalcrResult<Ast> {
         let begin_pos = self.pos;
         if let Some(func) = self.consume_function() {
             let end_pos = self.pos;
@@ -102,7 +102,7 @@ impl Parser {
         }
     }
 
-    fn parse_product(&mut self) -> CResult<Ast> {
+    fn parse_product(&mut self) -> CalcrResult<Ast> {
         let mut lhs = try!(self.parse_factor());
         self.consume_whitespace();
         while self.peek_char() == Some('*') || self.peek_char() == Some('/') {
@@ -124,7 +124,7 @@ impl Parser {
         Ok(lhs)
     }
 
-    fn parse_factor(&mut self) -> CResult<Ast> {
+    fn parse_factor(&mut self) -> CalcrResult<Ast> {
         if self.peek_char() == Some('-') {
             let op_pos = self.pos;
             self.consume_char();
@@ -151,7 +151,7 @@ impl Parser {
         }
     }
 
-    fn parse_exponent(&mut self) -> CResult<Ast> {
+    fn parse_exponent(&mut self) -> CalcrResult<Ast> {
         let mut out = try!(self.parse_number());
         self.consume_whitespace();
 
@@ -171,7 +171,7 @@ impl Parser {
         Ok(out)
     }
 
-    fn parse_number(&mut self) -> CResult<Ast> {
+    fn parse_number(&mut self) -> CalcrResult<Ast> {
         match self.peek_char() {
             Some('(') => {
                 // store the current pos in case we need to report a paren error
@@ -182,7 +182,7 @@ impl Parser {
                 let eq = try!(self.parse_equation());
 
                 if self.eof() || self.consume_char() != ')' {
-                    Err(CError {
+                    Err(CalcrError {
                         desc: "Missing closing parentheses".to_string(),
                         span: (pre_pos, pre_pos),
                     })
@@ -200,7 +200,7 @@ impl Parser {
                 let eq = try!(self.parse_equation());
 
                 if self.eof() || self.consume_char() != '|' {
-                    Err(CError {
+                    Err(CalcrError {
                         desc: "Missing closing abs delimiter".to_string(),
                         span: (pre_pos, pre_pos),
                     })
@@ -219,7 +219,7 @@ impl Parser {
                     "pi" => Pi,
                     "e" => E,
                     "phi" => Phi,
-                    _ => return Err(CError {
+                    _ => return Err(CalcrError {
                         desc: format!("Invalid function or constant: {}", cnst_str),
                         span: (self.pos - cnst_str.len(), self.pos),
                     }),
@@ -239,13 +239,13 @@ impl Parser {
                         branches: Leaf,
                     })
                 } else {
-                    Err(CError {
+                    Err(CalcrError {
                         desc: format!("Invalid number: {}", num_str),
                         span: (self.pos - num_str.len(), self.pos),
                     })
                 }
             },
-            _ => Err(CError {
+            _ => Err(CalcrError {
                 desc: format!("Expected number or constant"),
                 span: (self.pos, self.pos),
             }),

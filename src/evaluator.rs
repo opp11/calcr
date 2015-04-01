@@ -6,9 +6,9 @@ use ast::AstFunc::*;
 use ast::AstOp::*;
 use ast::AstConst::*;
 use ast::AstBranch::*;
-use errors::{CResult, CError};
+use errors::{CalcrResult, CalcrError};
 
-pub fn eval_eq(ast: &Ast) -> CResult<f64> {
+pub fn eval_eq(ast: &Ast) -> CalcrResult<f64> {
     match ast.val {
         Func(ref f) => eval_func(f, ast),
         Op(ref o) => eval_op(o, ast),
@@ -17,7 +17,7 @@ pub fn eval_eq(ast: &Ast) -> CResult<f64> {
     }
 }
 
-fn eval_func(f: &AstFunc, ast: &Ast) -> CResult<f64> {
+fn eval_func(f: &AstFunc, ast: &Ast) -> CalcrResult<f64> {
     if let Unary(ref child) = ast.branches {
         let arg = try!(eval_eq(&*child));
         Ok(match *f {
@@ -34,14 +34,14 @@ fn eval_func(f: &AstFunc, ast: &Ast) -> CResult<f64> {
             Log => arg.log10(),
         })
     } else {
-        Err(CError {
+        Err(CalcrError {
             desc: "Interal error - expected AstFunc to have unary branch".to_string(),
             span: ast.span,
         })
     }
 }
 
-fn eval_op(op: &AstOp, ast: &Ast) -> CResult<f64> {
+fn eval_op(op: &AstOp, ast: &Ast) -> CalcrResult<f64> {
     match ast.branches {
         Binary(ref lhs, ref rhs) => {
             let (lhs, rhs) = (try!(eval_eq(&*lhs)), try!(eval_eq(&*rhs)));
@@ -51,7 +51,7 @@ fn eval_op(op: &AstOp, ast: &Ast) -> CResult<f64> {
                 Mult => Ok(lhs * rhs),
                 Div => Ok(lhs / rhs),
                 Pow => Ok(lhs.powf(rhs)),
-                _ => Err(CError {
+                _ => Err(CalcrError {
                     desc: "Internal error - expected AstOp to have binary branch".to_string(),
                     span: ast.span,
                 })
@@ -62,20 +62,20 @@ fn eval_op(op: &AstOp, ast: &Ast) -> CResult<f64> {
             match *op {
                 Neg => Ok(-val),
                 Fact => evalf_fact(val, ast),
-                _ => Err(CError {
+                _ => Err(CalcrError {
                     desc: "Internal error - expected AstOp to have unary branch".to_string(),
                     span: ast.span,
                 })
             }
         },
-        Leaf => Err(CError {
+        Leaf => Err(CalcrError {
             desc: "Internal error - AstOp nodes may not be leaf nodes".to_string(),
             span: ast.span,
         })
     }
 }
 
-fn eval_const(c: &AstConst) -> CResult<f64> {
+fn eval_const(c: &AstConst) -> CalcrResult<f64> {
     Ok(match *c {
         Pi => f64::consts::PI,
         E => (1.0).exp(),
@@ -83,7 +83,7 @@ fn eval_const(c: &AstConst) -> CResult<f64> {
     })
 }
 
-fn evalf_fact(mut num: f64, ast: &Ast) -> CResult<f64> {
+fn evalf_fact(mut num: f64, ast: &Ast) -> CalcrResult<f64> {
     if num.fract() == 0.0 && num >= 0.0 {
         let mut out = 1.0;
         while num > 0.0 {
@@ -92,7 +92,7 @@ fn evalf_fact(mut num: f64, ast: &Ast) -> CResult<f64> {
         }
         Ok(out)
     } else {
-        Err(CError {
+        Err(CalcrError {
             desc: "The factorial function only accepts positive whole numbers".to_string(),
             span: ast.span,
         })
