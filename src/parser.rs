@@ -26,6 +26,8 @@
 //!
 //! Digit    ==> "0".."9"
 
+use std::str::Chars;
+use std::iter::Peekable;
 use errors::{CalcrResult, CalcrError};
 use ast::{Ast, AstFunc};
 use ast::AstBranch::*;
@@ -34,25 +36,25 @@ use ast::AstFunc::*;
 use ast::AstOp::*;
 use ast::AstConst::*;
 
-#[derive(Debug)]
-pub struct Parser {
+pub fn parse_equation(eq: String) -> CalcrResult<Ast> {
+	let mut parser = Parser {
+		pos: 0,
+		iter: eq.chars().peekable(),
+		paren_level: 0,
+		abs_level: 0,
+	};
+	parser.parse_equation()
+}
+
+pub struct Parser<'a> {
     pos: usize,
-    input: String,
+    iter: Peekable<Chars<'a>>,
     paren_level: u32,
     abs_level: u32,
 }
 
-impl Parser {
-    pub fn new(input: String) -> Self {
-        Parser {
-            pos: 0,
-            input: input,
-            paren_level: 0,
-            abs_level: 0,
-        }
-    }
-
-    pub fn parse_equation(&mut self) -> CalcrResult<Ast> {
+impl<'a> Parser<'a> {
+    fn parse_equation(&mut self) -> CalcrResult<Ast> {
         let mut lhs = try!(self.parse_term());
         self.consume_whitespace();
         while self.peek_char() == Some('+') || self.peek_char() == Some('-') {
@@ -275,12 +277,8 @@ impl Parser {
     }
 
     /// Peeks at the next `char` and returns `Some` if one was found, or `None` if none are left
-    fn peek_char(&self) -> Option<char> {
-        if self.eof() {
-            None
-        } else {
-            self.input.char_at(self.pos).to_lowercase().next()
-        }
+    fn peek_char(&mut self) -> Option<char> {
+        self.iter.peek().map(|ch| *ch)
     }
 
     /// Consumes a `char` - thereby advanding `pos` - and returns it
@@ -288,9 +286,9 @@ impl Parser {
     /// # Panics
     /// This function panics if there are no more chars to consume
     fn consume_char(&mut self) -> char {
-        let ch = self.input.char_at(self.pos);
-        self.pos += ch.len_utf8();
-        ch.to_lowercase().next().unwrap()
+        let ch = self.iter.next();
+        self.pos += 1;
+        ch.unwrap().to_lowercase().next().unwrap()
     }
 
     /// Consumes `char`s long as `pred` returns true and we are not eof
@@ -314,7 +312,7 @@ impl Parser {
     }
 
     /// Returns true if we are the end of input
-    fn eof(&self) -> bool {
-        self.pos >= self.input.len()
+    fn eof(&mut self) -> bool {
+        self.iter.peek().is_none()
     }
 }
