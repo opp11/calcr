@@ -35,7 +35,7 @@ fn main() {
 		for eq in matches.free {
 			match process_eq(&eq) {
 				Ok(num) => println!("{}", num),
-				Err(e) => println!("{:?}", e),
+				Err(e) => e.print(Some(&eq)),
 			}
 		}
 	}
