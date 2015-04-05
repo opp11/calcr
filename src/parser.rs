@@ -294,7 +294,7 @@ impl<'a> Parser<'a> {
     /// Consumes `char`s long as `pred` returns true and we are not eof
     ///
     /// The `char`s are returned as a `String`. Note that unlike `consume_char` this function will
-    /// panic.
+    /// not panic.
     fn consume_while<F>(&mut self, pred: F) -> String where F: Fn(char) -> bool {
         let mut out = String::new();
         loop {
