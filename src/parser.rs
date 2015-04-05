@@ -256,6 +256,7 @@ impl<'a> Parser<'a> {
 
     fn consume_function(&mut self) -> Option<AstFunc> {
         let pre_pos = self.pos;
+        let pre_iter = self.iter.clone();
         match self.consume_while(|ch| ch.is_alphabetic()).as_ref() {
             "sin" => Some(Sin),
             "cos" => Some(Cos),
@@ -270,6 +271,7 @@ impl<'a> Parser<'a> {
             "log" => Some(Log),
             _ => {
                 // no function found, so restore the previous position
+                self.iter = pre_iter;
                 self.pos = pre_pos;
                 None
             },
