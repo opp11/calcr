@@ -36,7 +36,7 @@ use ast::AstFunc::*;
 use ast::AstOp::*;
 use ast::AstConst::*;
 
-pub fn parse_equation(eq: String) -> CalcrResult<Ast> {
+pub fn parse_equation(eq: &String) -> CalcrResult<Ast> {
 	let mut parser = Parser {
 		pos: 0,
 		iter: eq.chars().peekable(),
