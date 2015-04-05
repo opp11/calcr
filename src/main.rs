@@ -30,7 +30,7 @@ fn main() {
 		println!("calcr - a small commandline calculator");
 		print_usage(opts);
 	} else if matches.opt_present("v") {
-		println!("{} {}", PROG_NAME, VERSION);
+        print_version();
 	} else if !matches.free.is_empty() {
 		for eq in matches.free {
 			match process_eq(&eq) {
@@ -49,4 +49,8 @@ fn process_eq(eq: &String) -> CalcrResult<f64> {
 fn print_usage(opts: Options) {
 	let brief = format!("usage:\n    {} [options...] [equation...]", PROG_NAME);
 	print!("{}", opts.usage(&brief));
+}
+
+fn print_version() {
+    println!("{} {}", PROG_NAME, VERSION);
 }
