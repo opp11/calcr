@@ -20,19 +20,46 @@ pub fn eval_eq(ast: &Ast) -> CalcrResult<f64> {
 fn eval_func(f: &AstFunc, ast: &Ast) -> CalcrResult<f64> {
     if let Unary(ref child) = ast.branches {
         let arg = try!(eval_eq(&*child));
-        Ok(match *f {
-            Sin => arg.sin(),
-            Cos => arg.cos(),
-            Tan => arg.tan(),
-            Asin => arg.asin(),
-            Acos => arg.acos(),
-            Atan => arg.atan(),
-            Sqrt => arg.sqrt(),
-            Abs => arg.abs(),
-            Exp => arg.exp(),
-            Ln => arg.ln(),
-            Log => arg.log10(),
-        })
+        match *f {
+            Sin => Ok(arg.sin()),
+            Cos => Ok(arg.cos()),
+            Tan => Ok(arg.tan()),
+            Asin => Ok(arg.asin()),
+            Acos => Ok(arg.acos()),
+            Atan => Ok(arg.atan()),
+            Abs => Ok(arg.abs()),
+            Exp => Ok(arg.exp()),
+            Sqrt => {
+                if arg < 0.0 {
+                    Err(CalcrError {
+                        desc: "Cannot take the square root of a negative number".to_string(),
+                        span: ast.span,
+                    })
+                } else {
+                    Ok(arg.sqrt())
+                }
+            },
+            Ln => {
+                if arg <= 0.0 {
+                    Err(CalcrError {
+                        desc: "Cannot take the logarithm of a non-positive number".to_string(),
+                        span: ast.span,
+                    })
+                } else {
+                    Ok(arg.ln())
+                }
+            },
+            Log =>  {
+                if arg <= 0.0 {
+                    Err(CalcrError {
+                        desc: "Cannot take the logarithm of a non-positive number".to_string(),
+                        span: ast.span,
+                    })
+                } else {
+                    Ok(arg.log10())
+                }
+            },
+        }
     } else {
         Err(CalcrError {
             desc: "Interal error - expected AstFunc to have unary branch".to_string(),
