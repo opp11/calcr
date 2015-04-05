@@ -76,12 +76,12 @@ impl<'a> Parser<'a> {
         if self.peek_char() == Some(')') && self.paren_level < 1 {
             Err(CalcrError {
                 desc: format!("Missing opening parentheses"),
-                span: (self.pos, self.pos),
+                span: Some((self.pos, self.pos)),
             })
         } else if self.peek_char() == Some('|') && self.abs_level < 1 {
             Err(CalcrError {
                 desc: format!("Missing opening abs delimiter"),
-                span: (self.pos, self.pos),
+                span: Some((self.pos, self.pos)),
             })
         } else {
             Ok(lhs)
@@ -186,7 +186,7 @@ impl<'a> Parser<'a> {
                 if self.eof() || self.consume_char() != ')' {
                     Err(CalcrError {
                         desc: "Missing closing parentheses".to_string(),
-                        span: (pre_pos, pre_pos),
+                        span: Some((pre_pos, pre_pos)),
                     })
                 } else {
                     self.paren_level -= 1;
@@ -204,7 +204,7 @@ impl<'a> Parser<'a> {
                 if self.eof() || self.consume_char() != '|' {
                     Err(CalcrError {
                         desc: "Missing closing abs delimiter".to_string(),
-                        span: (pre_pos, pre_pos),
+                        span: Some((pre_pos, pre_pos)),
                     })
                 } else {
                     self.abs_level -= 1;
@@ -223,7 +223,7 @@ impl<'a> Parser<'a> {
                     "phi" => Phi,
                     _ => return Err(CalcrError {
                         desc: format!("Invalid function or constant: {}", cnst_str),
-                        span: (self.pos - cnst_str.len(), self.pos),
+                        span: Some((self.pos - cnst_str.len(), self.pos)),
                     }),
                 };
                 Ok(Ast {
@@ -243,13 +243,13 @@ impl<'a> Parser<'a> {
                 } else {
                     Err(CalcrError {
                         desc: format!("Invalid number: {}", num_str),
-                        span: (self.pos - num_str.len(), self.pos),
+                        span: Some((self.pos - num_str.len(), self.pos)),
                     })
                 }
             },
             _ => Err(CalcrError {
                 desc: format!("Expected number or constant"),
-                span: (self.pos, self.pos),
+                span: Some((self.pos, self.pos)),
             }),
         }
     }
