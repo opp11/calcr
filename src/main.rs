@@ -33,7 +33,7 @@ fn main() {
 		println!("{} {}", PROG_NAME, VERSION);
 	} else if !matches.free.is_empty() {
 		for eq in matches.free {
-			match process_eq(eq) {
+			match process_eq(&eq) {
 				Ok(num) => println!("{}", num),
 				Err(e) => println!("{:?}", e),
 			}
@@ -41,7 +41,7 @@ fn main() {
 	}
 }
 
-fn process_eq(eq: String) -> CalcrResult<f64> {
+fn process_eq(eq: &String) -> CalcrResult<f64> {
 	let ast = try!(parser::parse_equation(&eq));
 	evaluator::eval_eq(&ast)
 }
