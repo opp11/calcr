@@ -11,7 +11,7 @@ mod errors;
 mod evaluator;
 
 const PROG_NAME: &'static str = "calcr";
-const VERSION: &'static str = "v0.0.1";
+const VERSION: &'static str = "v0.2.0";
 
 fn main() {
 	let args: Vec<String> = env::args().collect();
