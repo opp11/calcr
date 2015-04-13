@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct CalcrError {
 	pub desc: String,
 	pub span: Option<(usize, usize)>,

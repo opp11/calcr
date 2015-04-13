@@ -1,18 +1,18 @@
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Ast {
     pub val: AstVal,
     pub span: (usize, usize),
     pub branches: AstBranch,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum AstBranch {
     Binary(Box<Ast>, Box<Ast>),
     Unary(Box<Ast>),
     Leaf,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum AstVal {
     Func(AstFunc),
     Op(AstOp),
@@ -20,7 +20,7 @@ pub enum AstVal {
     Num(f64),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum AstFunc {
     Sin,
     Cos,
@@ -35,7 +35,7 @@ pub enum AstFunc {
     Log,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum AstOp {
     Plus,
     Minus,
@@ -46,7 +46,7 @@ pub enum AstOp {
     Neg,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum AstConst {
     Pi,
     E,
