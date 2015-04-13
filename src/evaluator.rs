@@ -33,7 +33,7 @@ fn eval_func(f: &AstFunc, ast: &Ast) -> CalcrResult<f64> {
                 if arg < 0.0 {
                     Err(CalcrError {
                         desc: "Cannot take the square root of a negative number".to_string(),
-                        span: Some(ast.span),
+                        span: Some(child.get_total_span()),
                     })
                 } else {
                     Ok(arg.sqrt())
@@ -43,7 +43,7 @@ fn eval_func(f: &AstFunc, ast: &Ast) -> CalcrResult<f64> {
                 if arg <= 0.0 {
                     Err(CalcrError {
                         desc: "Cannot take the logarithm of a non-positive number".to_string(),
-                        span: Some(ast.span),
+                        span: Some(child.get_total_span()),
                     })
                 } else {
                     Ok(arg.ln())
@@ -53,7 +53,7 @@ fn eval_func(f: &AstFunc, ast: &Ast) -> CalcrResult<f64> {
                 if arg <= 0.0 {
                     Err(CalcrError {
                         desc: "Cannot take the logarithm of a non-positive number".to_string(),
-                        span: Some(ast.span),
+                        span: Some(child.get_total_span()),
                     })
                 } else {
                     Ok(arg.log10())
@@ -84,11 +84,11 @@ fn eval_op(op: &AstOp, ast: &Ast) -> CalcrResult<f64> {
                 })
             }
         },
-        Unary(ref val) => {
-            let val = try!(eval_eq(&*val));
+        Unary(ref child) => {
+            let val = try!(eval_eq(&*child));
             match *op {
                 Neg => Ok(-val),
-                Fact => evalf_fact(val, ast),
+                Fact => evalf_fact(val, child),
                 _ => Err(CalcrError {
                     desc: "Internal error - expected AstOp to have unary branch".to_string(),
                     span: None,
@@ -110,7 +110,7 @@ fn eval_const(c: &AstConst) -> CalcrResult<f64> {
     })
 }
 
-fn evalf_fact(mut num: f64, ast: &Ast) -> CalcrResult<f64> {
+fn evalf_fact(mut num: f64, child: &Ast) -> CalcrResult<f64> {
     if num.fract() == 0.0 && num >= 0.0 {
         let mut out = 1.0;
         while num > 0.0 {
@@ -121,7 +121,7 @@ fn evalf_fact(mut num: f64, ast: &Ast) -> CalcrResult<f64> {
     } else {
         Err(CalcrError {
             desc: "The factorial function only accepts positive whole numbers".to_string(),
-            span: Some(ast.span),
+            span: Some(child.get_total_span()),
         })
     }
 }
