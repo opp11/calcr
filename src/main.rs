@@ -73,7 +73,7 @@ fn run_enviroment() {
 }
 
 fn print_usage(opts: Options) {
-	let brief = format!("usage:\n    {} [options...] [equation...]", PROG_NAME);
+	let brief = format!("Usage:\n    {} [options...] [equation...]", PROG_NAME);
 	print!("{}", opts.usage(&brief));
 }
 
