@@ -190,7 +190,11 @@ impl<'a> Parser<'a> {
                     })
                 } else {
                     self.paren_level -= 1;
-                    Ok(eq)
+                    Ok(Ast {
+                        val: Paren,
+                        span: (pre_pos, self.pos),
+                        branches: Unary(Box::new(eq)),
+                    })
                 }
             },
             Some('|') => {

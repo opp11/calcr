@@ -9,21 +9,26 @@ pub struct Ast {
 
 impl Ast {
     pub fn get_total_span(&self) -> (usize, usize) {
-        match self.branches {
-            AstBranch::Binary(ref lhs, ref rhs) => {
-                let lhs_span = lhs.get_total_span();
-                let rhs_span = rhs.get_total_span();
-                let begin = min(self.span.0, lhs_span.0);
-                let end = max(self.span.1, rhs_span.1);
-                (begin, end)
-            },
-            AstBranch::Unary(ref child) => {
-                let child_span = child.get_total_span();
-                let begin = min(self.span.0, child_span.0);
-                let end = max(self.span.1, child_span.1);
-                (begin, end)
-            },
-            AstBranch::Leaf => self.span,
+        if self.val == AstVal::Paren {
+            // since parens always encapsulates their child, we can just stop here
+            self.span
+        } else {
+            match self.branches {
+                AstBranch::Binary(ref lhs, ref rhs) => {
+                    let lhs_span = lhs.get_total_span();
+                    let rhs_span = rhs.get_total_span();
+                    let begin = min(self.span.0, lhs_span.0);
+                    let end = max(self.span.1, rhs_span.1);
+                    (begin, end)
+                },
+                AstBranch::Unary(ref child) => {
+                    let child_span = child.get_total_span();
+                    let begin = min(self.span.0, child_span.0);
+                    let end = max(self.span.1, child_span.1);
+                    (begin, end)
+                },
+                AstBranch::Leaf => self.span,
+            }
         }
     }
 }
@@ -41,6 +46,7 @@ pub enum AstVal {
     Op(AstOp),
     Const(AstConst),
     Num(f64),
+    Paren,
 }
 
 #[derive(Debug, PartialEq)]

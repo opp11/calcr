@@ -14,6 +14,16 @@ pub fn eval_eq(ast: &Ast) -> CalcrResult<f64> {
         Op(ref o) => eval_op(o, ast),
         Const(ref c) => eval_const(c),
         Num(ref n) => Ok(*n),
+        Paren => {
+            if let Unary(ref child) = ast.branches {
+                eval_eq(child)
+            } else {
+                Err(CalcrError {
+                    desc: "Internal error - expected Paren to have unary branch".to_string(),
+                    span: None,
+                })
+            }
+        },
     }
 }
 
