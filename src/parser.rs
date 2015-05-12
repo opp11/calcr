@@ -1,4 +1,4 @@
-//! The parser works based on the following grammar
+//! The parser is based on the following grammar
 //!
 //! Equation ==> Term { "+" Term }
 //!           |  Term { "-" Term }
@@ -17,7 +17,7 @@
 //! Number   ==> "(" Equation ")"
 //!           |  "|" Equation "|"
 //!           |  Constant
-//!           |  { Digit }
+//!           |  Digit { Digit } | Digit { Digit } "." { Digit }
 //!
 //! Function ==> "sin" | "cos" | "tan" | "asin" | "acos" | "atan" | "sqrt" | "abs" | "exp"
 //!           |  "ln" | "log"
