@@ -37,13 +37,13 @@ use ast::AstOp::*;
 use ast::AstConst::*;
 
 pub fn parse_equation(eq: &String) -> CalcrResult<Ast> {
-	let mut parser = Parser {
-		pos: 0,
-		iter: eq.chars().peekable(),
-		paren_level: 0,
-		abs_level: 0,
-	};
-	parser.parse_equation()
+    let mut parser = Parser {
+        pos: 0,
+        iter: eq.chars().peekable(),
+        paren_level: 0,
+        abs_level: 0,
+    };
+    parser.parse_equation()
 }
 
 pub struct Parser<'a> {
