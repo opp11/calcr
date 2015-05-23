@@ -29,12 +29,12 @@
 use std::str::Chars;
 use std::iter::Peekable;
 use errors::{CalcrResult, CalcrError};
-use ast::{Ast, AstFunc};
-use ast::AstBranch::*;
+use ast::{Ast, FuncKind};
 use ast::AstVal::*;
-use ast::AstFunc::*;
-use ast::AstOp::*;
-use ast::AstConst::*;
+use ast::AstBranch::*;
+use ast::FuncKind::*;
+use ast::OpKind::*;
+use ast::ConstKind::*;
 
 pub fn parse_equation(eq: &String) -> CalcrResult<Ast> {
     let mut parser = Parser {
@@ -258,7 +258,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn consume_function(&mut self) -> Option<AstFunc> {
+    fn consume_function(&mut self) -> Option<FuncKind> {
         let pre_pos = self.pos;
         let pre_iter = self.iter.clone();
         match self.consume_while(|ch| ch.is_alphabetic()).as_ref() {

@@ -9,6 +9,8 @@ mod parser;
 mod ast;
 mod errors;
 mod evaluator;
+mod lexer;
+mod token;
 
 const PROG_NAME: &'static str = "calcr";
 const VERSION: &'static str = "v0.2.3";

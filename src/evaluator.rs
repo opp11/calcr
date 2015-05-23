@@ -1,10 +1,10 @@
 use std::num::Float;
 use std::f64;
-use ast::{Ast, AstConst, AstFunc, AstOp};
+use ast::{Ast, ConstKind, FuncKind, OpKind};
 use ast::AstVal::*;
-use ast::AstFunc::*;
-use ast::AstOp::*;
-use ast::AstConst::*;
+use ast::FuncKind::*;
+use ast::OpKind::*;
+use ast::ConstKind::*;
 use ast::AstBranch::*;
 use errors::{CalcrResult, CalcrError};
 
@@ -27,7 +27,7 @@ pub fn eval_eq(ast: &Ast) -> CalcrResult<f64> {
     }
 }
 
-fn eval_func(f: &AstFunc, ast: &Ast) -> CalcrResult<f64> {
+fn eval_func(f: &FuncKind, ast: &Ast) -> CalcrResult<f64> {
     if let Unary(ref child) = ast.branches {
         let arg = try!(eval_eq(&*child));
         match *f {
@@ -78,7 +78,7 @@ fn eval_func(f: &AstFunc, ast: &Ast) -> CalcrResult<f64> {
     }
 }
 
-fn eval_op(op: &AstOp, ast: &Ast) -> CalcrResult<f64> {
+fn eval_op(op: &OpKind, ast: &Ast) -> CalcrResult<f64> {
     match ast.branches {
         Binary(ref lhs, ref rhs) => {
             let (lhs, rhs) = (try!(eval_eq(&*lhs)), try!(eval_eq(&*rhs)));
@@ -112,7 +112,7 @@ fn eval_op(op: &AstOp, ast: &Ast) -> CalcrResult<f64> {
     }
 }
 
-fn eval_const(c: &AstConst) -> CalcrResult<f64> {
+fn eval_const(c: &ConstKind) -> CalcrResult<f64> {
     Ok(match *c {
         Pi => f64::consts::PI,
         E => (1.0).exp(),

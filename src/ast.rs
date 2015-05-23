@@ -42,15 +42,15 @@ pub enum AstBranch {
 
 #[derive(Debug, PartialEq)]
 pub enum AstVal {
-    Func(AstFunc),
-    Op(AstOp),
-    Const(AstConst),
+    Func(FuncKind),
+    Op(OpKind),
+    Const(ConstKind),
     Num(f64),
     Paren,
 }
 
 #[derive(Debug, PartialEq)]
-pub enum AstFunc {
+pub enum FuncKind {
     Sin,
     Cos,
     Tan,
@@ -65,7 +65,7 @@ pub enum AstFunc {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum AstOp {
+pub enum OpKind {
     Plus,
     Minus,
     Mult,
@@ -76,7 +76,7 @@ pub enum AstOp {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum AstConst {
+pub enum ConstKind {
     Pi,
     E,
     Phi,
