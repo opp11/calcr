@@ -262,7 +262,7 @@ impl Parser {
     /// Consumes a `Token` - thereby advanding `pos` - and returns it
     ///
     /// # Panics
-    /// This function panics if there are no more chars to consume
+    /// This function panics if there are no more `Token`s to consume
     fn consume_tok(&mut self) -> Token {
         let tok = self.iter.next();
         tok.unwrap()
