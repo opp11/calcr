@@ -26,62 +26,60 @@
 //!
 //! Digit    ==> "0".."9"
 
-use std::str::Chars;
+use std::vec::IntoIter;
 use std::iter::Peekable;
 use errors::{CalcrResult, CalcrError};
-use ast::{Ast, FuncKind};
-use ast::AstVal::*;
+use ast::Ast;
+use ast::AstVal;
 use ast::AstBranch::*;
 use ast::FuncKind::*;
-use ast::OpKind::*;
 use ast::ConstKind::*;
+use ast::OpKind::*;
+use token::Token;
+use token::TokVal;
 
-pub fn parse_equation(eq: &String) -> CalcrResult<Ast> {
+pub fn parse_equation(tokens: Vec<Token>) -> CalcrResult<Ast> {
+    let end_pos = tokens.last().and_then(|tok| Some(tok.span.1)).unwrap_or(0);
     let mut parser = Parser {
-        pos: 0,
-        iter: eq.chars().peekable(),
+        iter: tokens.into_iter().peekable(),
         paren_level: 0,
         abs_level: 0,
+        end_pos: end_pos,
     };
     parser.parse_equation()
 }
 
-pub struct Parser<'a> {
-    pos: usize,
-    iter: Peekable<Chars<'a>>,
+pub struct Parser {
+    iter: Peekable<IntoIter<Token>>,
     paren_level: u32,
     abs_level: u32,
+    end_pos: usize,
 }
 
-impl<'a> Parser<'a> {
+impl Parser {
     fn parse_equation(&mut self) -> CalcrResult<Ast> {
         let mut lhs = try!(self.parse_term());
-        self.consume_whitespace();
-        while self.peek_char() == Some('+') || self.peek_char() == Some('-') {
-            let op_pos = self.pos;
-            let op = if self.consume_char() == '+' {
-                Plus
-            } else {
-                Minus
-            };
-            self.consume_whitespace();
+        while self.peek_tok_val() == Some(TokVal::Op(Plus)) ||
+              self.peek_tok_val() == Some(TokVal::Op(Minus)) {
+            let Token { val: tok_val, span: tok_span } = self.consume_tok();
             let rhs = try!(self.parse_term());
             lhs = Ast {
-                val: Op(op),
-                span: (op_pos, op_pos),
+                val: AstVal::Op(tok_val.op().unwrap()),
+                span: tok_span,
                 branches: Binary(Box::new(lhs), Box::new(rhs)),
-            };
-            self.consume_whitespace();
+            }
         }
-        if self.peek_char() == Some(')') && self.paren_level < 1 {
+        if self.peek_tok_val() == Some(TokVal::ParenClose) && self.paren_level < 1 {
+            let Token { val: _, span: tok_span } = self.consume_tok();
             Err(CalcrError {
                 desc: format!("Missing opening parentheses"),
-                span: Some((self.pos, self.pos)),
+                span: Some(tok_span),
             })
-        } else if self.peek_char() == Some('|') && self.abs_level < 1 {
+        } else if self.peek_tok_val() == Some(TokVal::AbsDelim) && self.abs_level < 1 {
+            let Token { val: _, span: tok_span } = self.consume_tok();
             Err(CalcrError {
                 desc: format!("Missing opening abs delimiter"),
-                span: Some((self.pos, self.pos)),
+                span: Some(tok_span),
             })
         } else {
             Ok(lhs)
@@ -89,14 +87,29 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_term(&mut self) -> CalcrResult<Ast> {
-        let begin_pos = self.pos;
-        if let Some(func) = self.consume_function() {
-            let end_pos = self.pos;
-            self.consume_whitespace();
+        // check if we have a function
+        let func_opt = match self.peek_tok_val() {
+            // TODO: Make this not horrible, since the compiler kept bugging me
+            Some(TokVal::Name(ref name)) if *name == "cos".to_string() => Some(Cos),
+            Some(TokVal::Name(ref name)) if *name == "sin".to_string() => Some(Sin),
+            Some(TokVal::Name(ref name)) if *name == "tan".to_string() => Some(Tan),
+            Some(TokVal::Name(ref name)) if *name == "asin".to_string() => Some(Asin),
+            Some(TokVal::Name(ref name)) if *name == "acos".to_string() => Some(Acos),
+            Some(TokVal::Name(ref name)) if *name == "atan".to_string() => Some(Atan),
+            Some(TokVal::Name(ref name)) if *name == "sqrt".to_string() => Some(Sqrt),
+            Some(TokVal::Name(ref name)) if *name == "abs".to_string() => Some(Abs),
+            Some(TokVal::Name(ref name)) if *name == "exp".to_string() => Some(Exp),
+            Some(TokVal::Name(ref name)) if *name == "ln".to_string() => Some(Ln),
+            Some(TokVal::Name(ref name)) if *name == "log".to_string() => Some(Log),
+            _ => None,
+        };
+
+        if let Some(func) = func_opt {
+            let Token { val: _, span: tok_span } = self.consume_tok();
             let arg = try!(self.parse_product());
             Ok(Ast {
-                val: Func(func),
-                span: (begin_pos, end_pos),
+                val: AstVal::Func(func),
+                span: tok_span,
                 branches: Unary(Box::new(arg)),
             })
         } else {
@@ -106,45 +119,38 @@ impl<'a> Parser<'a> {
 
     fn parse_product(&mut self) -> CalcrResult<Ast> {
         let mut lhs = try!(self.parse_factor());
-        self.consume_whitespace();
-        while self.peek_char() == Some('*') || self.peek_char() == Some('/') {
-            let op_pos = self.pos;
-            let op = if self.consume_char() == '*' {
-                Mult
-            } else {
-                Div
-            };
-            self.consume_whitespace();
+        while self.peek_tok_val() == Some(TokVal::Op(Mult)) ||
+              self.peek_tok_val() == Some(TokVal::Op(Div)) {
+            let Token { val: tok_val, span: tok_span } = self.consume_tok();
             let rhs = try!(self.parse_factor());
             lhs = Ast {
-                val: Op(op),
-                span: (op_pos, op_pos),
+                val: AstVal::Op(tok_val.op().unwrap()),
+                span: tok_span,
                 branches: Binary(Box::new(lhs), Box::new(rhs)),
             };
-            self.consume_whitespace();
         }
         Ok(lhs)
     }
 
     fn parse_factor(&mut self) -> CalcrResult<Ast> {
-        if self.peek_char() == Some('-') {
-            let op_pos = self.pos;
-            self.consume_char();
+        // when we lex we only store `Minus`s since we do not have any context there,
+        // however we know if we see a `Minus` now, then it is a `Neg`.
+        if self.peek_tok_val() == Some(TokVal::Op(Minus)) {
+            let tok_span = self.consume_tok().span;
             let rhs = try!(self.parse_factor());
             Ok(Ast {
-                val: Op(Neg),
-                span: (op_pos, op_pos),
+                val: AstVal::Op(Neg),
+                span: tok_span,
                 branches: Unary(Box::new(rhs)),
             })
         } else {
             let lhs = try!(self.parse_exponent());
-            if self.peek_char() == Some('^') {
-                let op_pos = self.pos;
-                self.consume_char();
+            if self.peek_tok_val() == Some(TokVal::Op(Pow)) {
+                let tok_span = self.consume_tok().span;
                 let rhs = try!(self.parse_factor());
                 Ok(Ast {
-                    val: Op(Pow),
-                    span: (op_pos, op_pos),
+                    val: AstVal::Op(Pow),
+                    span: tok_span,
                     branches: Binary(Box::new(lhs), Box::new(rhs)),
                 })
             } else {
@@ -155,18 +161,12 @@ impl<'a> Parser<'a> {
 
     fn parse_exponent(&mut self) -> CalcrResult<Ast> {
         let mut out = try!(self.parse_number());
-        self.consume_whitespace();
 
-        // we don't parse the factorial signs (`!`) using recursion, since we need to put the
-        // current `out` at the bottum of the tree at each step, so it is easier if we have access
-        // to each node as we create them.
-        while self.peek_char() == Some('!') {
-            let op_pos = self.pos;
-            self.consume_char();
-            self.consume_whitespace();
+        while self.peek_tok_val() == Some(TokVal::Op(Fact)) {
+            let tok_span = self.consume_tok().span;
             out = Ast {
-                val: Op(Fact),
-                span: (op_pos, op_pos),
+                val: AstVal::Op(Fact),
+                span: tok_span,
                 branches: Unary(Box::new(out)),
             };
         }
@@ -174,151 +174,97 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_number(&mut self) -> CalcrResult<Ast> {
-        match self.peek_char() {
-            Some('(') => {
+        match self.peek_tok_val() {
+            Some(TokVal::ParenOpen) => {
                 // store the current pos in case we need to report a paren error
-                let pre_pos = self.pos;
-                self.consume_char();
-                self.consume_whitespace();
+                let open_paren_span = self.consume_tok().span;
                 self.paren_level += 1;
                 let eq = try!(self.parse_equation());
 
-                if self.eof() || self.consume_char() != ')' {
+                if self.peek_tok_val() != Some(TokVal::ParenClose) {
                     Err(CalcrError {
                         desc: "Missing closing parentheses".to_string(),
-                        span: Some((pre_pos, pre_pos)),
+                        span: Some(open_paren_span),
                     })
                 } else {
                     self.paren_level -= 1;
+                    let close_paren_span = self.consume_tok().span;
                     Ok(Ast {
-                        val: Paren,
-                        span: (pre_pos, self.pos),
+                        val: AstVal::Paren,
+                        span: (open_paren_span.0, close_paren_span.1),
                         branches: Unary(Box::new(eq)),
                     })
                 }
             },
-            Some('|') => {
-                // store the current pos in case we need to report an abs delim error
-                let pre_pos = self.pos;
-                self.consume_char();
-                self.consume_whitespace();
+            Some(TokVal::AbsDelim) => {
+                // store the current pos in case we need to report a paren error
+                let open_delim_span = self.consume_tok().span;
                 self.abs_level += 1;
                 let eq = try!(self.parse_equation());
 
-                if self.eof() || self.consume_char() != '|' {
+                if self.peek_tok_val() != Some(TokVal::AbsDelim) {
                     Err(CalcrError {
                         desc: "Missing closing abs delimiter".to_string(),
-                        span: Some((pre_pos, pre_pos)),
+                        span: Some(open_delim_span),
                     })
                 } else {
                     self.abs_level -= 1;
+                    let close_delim_span = self.consume_tok().span;
                     Ok(Ast {
-                        val: Func(Abs),
-                        span: (pre_pos, pre_pos),
+                        val: AstVal::Func(Abs),
+                        span: (open_delim_span.0, close_delim_span.1),
                         branches: Unary(Box::new(eq)),
                     })
                 }
             },
-            Some(ch) if ch.is_alphabetic() => {
-                let cnst_str = self.consume_while(|ch| ch.is_alphabetic());
-                let cnst = match cnst_str.as_ref() {
+            Some(TokVal::Name(ref name)) => {
+                // at this point any Name, HAS to be a known constant
+                let cnst = match name.as_ref() {
                     "pi" => Pi,
                     "e" => E,
                     "phi" => Phi,
                     _ => return Err(CalcrError {
-                        desc: format!("Invalid function or constant: {}", cnst_str),
-                        span: Some((self.pos - cnst_str.len(), self.pos)),
+                        desc: format!("Invalid function or constant: {}", name),
+                        span: Some(self.consume_tok().span),
                     }),
                 };
+                let span = self.consume_tok().span;
                 Ok(Ast {
-                    val: Const(cnst),
-                    span: (self.pos - cnst_str.len(), self.pos),
+                    val: AstVal::Const(cnst),
+                    span: span,
                     branches: Leaf,
                 })
             },
-            Some(ch) if ch.is_numeric() => {
-                let num_str = self.consume_while(|ch| ch.is_numeric() || ch == '.');
-                if let Ok(num) = num_str.parse::<f64>() {
-                    Ok(Ast {
-                        val: Num(num),
-                        span: (self.pos - num_str.len(), self.pos),
-                        branches: Leaf,
-                    })
-                } else {
-                    Err(CalcrError {
-                        desc: format!("Invalid number: {}", num_str),
-                        span: Some((self.pos - num_str.len(), self.pos)),
-                    })
-                }
+            Some(TokVal::Num(num)) => {
+                let span = self.consume_tok().span;
+                Ok(Ast {
+                    val: AstVal::Num(num),
+                    span: span,
+                    branches: Leaf,
+                })
             },
-            _ => Err(CalcrError {
+            Some(_) => Err(CalcrError {
                 desc: format!("Expected number or constant"),
-                span: Some((self.pos, self.pos)),
+                span: Some(self.consume_tok().span),
+            }),
+            None => Err(CalcrError {
+                desc: format!("Expected number or constant"),
+                span: Some((self.end_pos, self.end_pos)),
             }),
         }
     }
 
-    fn consume_function(&mut self) -> Option<FuncKind> {
-        let pre_pos = self.pos;
-        let pre_iter = self.iter.clone();
-        match self.consume_while(|ch| ch.is_alphabetic()).as_ref() {
-            "sin" => Some(Sin),
-            "cos" => Some(Cos),
-            "tan" => Some(Tan),
-            "asin" => Some(Asin),
-            "acos" => Some(Acos),
-            "atan" => Some(Atan),
-            "sqrt" => Some(Sqrt),
-            "abs" => Some(Abs),
-            "exp" => Some(Exp),
-            "ln" => Some(Ln),
-            "log" => Some(Log),
-            _ => {
-                // no function found, so restore the previous position
-                self.iter = pre_iter;
-                self.pos = pre_pos;
-                None
-            },
-        }
+    /// Peeks at the next `Token` and returns `Some` if one was found, or `None` if none are left
+    fn peek_tok_val(&mut self) -> Option<TokVal> {
+        self.iter.peek().and_then(|ref tok| Some(tok.val.clone()))
     }
 
-    /// Peeks at the next `char` and returns `Some` if one was found, or `None` if none are left
-    fn peek_char(&mut self) -> Option<char> {
-        self.iter.peek().map(|ch| *ch)
-    }
-
-    /// Consumes a `char` - thereby advanding `pos` - and returns it
+    /// Consumes a `Token` - thereby advanding `pos` - and returns it
     ///
     /// # Panics
     /// This function panics if there are no more chars to consume
-    fn consume_char(&mut self) -> char {
-        let ch = self.iter.next();
-        self.pos += 1;
-        ch.unwrap().to_lowercase().next().unwrap()
-    }
-
-    /// Consumes `char`s long as `pred` returns true and we are not eof
-    ///
-    /// The `char`s are returned as a `String`. Note that unlike `consume_char` this function will
-    /// not panic.
-    fn consume_while<F>(&mut self, pred: F) -> String where F: Fn(char) -> bool {
-        let mut out = String::new();
-        loop {
-            match self.peek_char() {
-                Some(ch) if pred(ch) => out.push(self.consume_char()),
-                _ => break,
-            }
-        }
-        out
-    }
-
-    /// Consumes any current whitespace
-    fn consume_whitespace(&mut self) {
-        self.consume_while(|ch| ch.is_whitespace());
-    }
-
-    /// Returns true if we are the end of input
-    fn eof(&mut self) -> bool {
-        self.iter.peek().is_none()
+    fn consume_tok(&mut self) -> Token {
+        let tok = self.iter.next();
+        tok.unwrap()
     }
 }

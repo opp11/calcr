@@ -64,7 +64,7 @@ pub enum FuncKind {
     Log,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum OpKind {
     Plus,
     Minus,

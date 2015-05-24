@@ -47,7 +47,8 @@ fn main() {
 }
 
 fn process_eq(eq: &String) -> CalcrResult<f64> {
-    let ast = try!(parser::parse_equation(&eq));
+    let tokens = try!(lexer::lex_equation(&eq));
+    let ast = try!(parser::parse_equation(tokens));
     evaluator::eval_eq(&ast)
 }
 

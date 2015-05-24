@@ -2,7 +2,7 @@ use std::str::Chars;
 use std::iter::Peekable;
 use errors::{CalcrResult, CalcrError};
 use token::Token;
-use token::TokenVal::*;
+use token::TokVal::*;
 use ast::OpKind::*;
 
 pub fn lex_equation(eq: &String) -> CalcrResult<Vec<Token>> {
@@ -26,7 +26,7 @@ impl<'a> Lexer<'a> {
             let tok = match self.peek_char() {
                 Some(ch) if ch.is_numeric() => try!(self.lex_number()),
                 Some(ch) if ch.is_alphabetic() => try!(self.lex_name()),
-                Some(ch) => try!(self.lex_single_char()),
+                Some(_) => try!(self.lex_single_char()),
                 None => break,
             };
             out.push(tok);
@@ -71,12 +71,12 @@ impl<'a> Lexer<'a> {
             '|' => AbsDelim,
             ch => return Err(CalcrError {
                 desc: format!("Invalid char: {}", ch),
-                span: Some((self.pos, self.pos)),
+                span: Some((self.pos - 1, self.pos)),
             }),
         };
         Ok(Token {
             val: val,
-            span: (self.pos, self.pos),
+            span: (self.pos - 1, self.pos),
         })
     }
 
@@ -113,10 +113,5 @@ impl<'a> Lexer<'a> {
     /// Consumes any current whitespace
     fn consume_whitespace(&mut self) {
         self.consume_while(|ch| ch.is_whitespace());
-    }
-
-    /// Returns true if we are the end of input
-    fn eof(&mut self) -> bool {
-        self.iter.peek().is_none()
     }
 }
