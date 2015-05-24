@@ -6,8 +6,8 @@
 //! Term     ==> Function Product
 //!           |  Product
 //!
-//! Product  ==> Factor { "*" Factor }
-//!           |  Factor { "/" Factor }
+//! Product  ==> Factor { "*" Term }
+//!           |  Factor { "/" Term }
 //!
 //! Factor   ==> "-" Factor
 //!           |  Exponent { "^" Factor }
@@ -122,7 +122,7 @@ impl Parser {
         while self.peek_tok_val() == Some(TokVal::Op(Mult)) ||
               self.peek_tok_val() == Some(TokVal::Op(Div)) {
             let Token { val: tok_val, span: tok_span } = self.consume_tok();
-            let rhs = try!(self.parse_factor());
+            let rhs = try!(self.parse_term());
             lhs = Ast {
                 val: AstVal::Op(tok_val.op().unwrap()),
                 span: tok_span,
