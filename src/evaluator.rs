@@ -1,4 +1,3 @@
-use std::num::Float;
 use std::f64;
 use ast::{Ast, ConstKind, FuncKind, OpKind};
 use ast::AstVal::*;
@@ -115,7 +114,7 @@ fn eval_op(op: &OpKind, ast: &Ast) -> CalcrResult<f64> {
 fn eval_const(c: &ConstKind) -> CalcrResult<f64> {
     Ok(match *c {
         Pi => f64::consts::PI,
-        E => (1.0).exp(),
+        E => (1.0f64).exp(),
         Phi => 1.6180339887498948482,
     })
 }
