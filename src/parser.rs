@@ -90,21 +90,26 @@ impl Parser {
 
     fn parse_term(&mut self) -> CalcrResult<Ast> {
         // check if we have a function
-        let func_opt = match self.peek_tok_val() {
-            // TODO: Make this not horrible, since the compiler kept bugging me
-            Some(&TokVal::Name(ref name)) if *name == "cos".to_string() => Some(Cos),
-            Some(&TokVal::Name(ref name)) if *name == "sin".to_string() => Some(Sin),
-            Some(&TokVal::Name(ref name)) if *name == "tan".to_string() => Some(Tan),
-            Some(&TokVal::Name(ref name)) if *name == "asin".to_string() => Some(Asin),
-            Some(&TokVal::Name(ref name)) if *name == "acos".to_string() => Some(Acos),
-            Some(&TokVal::Name(ref name)) if *name == "atan".to_string() => Some(Atan),
-            Some(&TokVal::Name(ref name)) if *name == "sqrt".to_string() => Some(Sqrt),
-            Some(&TokVal::Name(ref name)) if *name == "abs".to_string() => Some(Abs),
-            Some(&TokVal::Name(ref name)) if *name == "exp".to_string() => Some(Exp),
-            Some(&TokVal::Name(ref name)) if *name == "ln".to_string() => Some(Ln),
-            Some(&TokVal::Name(ref name)) if *name == "log".to_string() => Some(Log),
-            _ => None,
-        };
+        let func_opt = self.peek_tok_val().and_then(|val| {
+            if let TokVal::Name(ref name) = *val {
+                match name.as_ref() {
+                    "cos" => Some(Cos),
+                    "sin" => Some(Sin),
+                    "tan" => Some(Tan),
+                    "asin" => Some(Asin),
+                    "acos" => Some(Acos),
+                    "atan" => Some(Atan),
+                    "sqrt" => Some(Sqrt),
+                    "abs" => Some(Abs),
+                    "exp" => Some(Exp),
+                    "ln" => Some(Ln),
+                    "log" => Some(Log),
+                    _ => None,
+                }
+            } else {
+                None
+            }
+        });
 
         if let Some(func) = func_opt {
             let Token { val: _, span: tok_span } = self.consume_tok();
