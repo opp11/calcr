@@ -1,22 +1,20 @@
 //! The parser is based on the following grammar
 //!
-//! Equation ==> Term { "+" Term }
-//!           |  Term { "-" Term }
+//! Equation ==> Product { "+" Product }
+//!           |  Product { "-" Product }
 //!
-//! Term     ==> Function Product
-//!           |  Product
-//!
-//! Product  ==> Factor { "*" Term }
-//!           |  Factor { "/" Term }
+//! Product  ==> Factor { "*" Factor }
+//!           |  Factor { "/" Factor }
 //!
 //! Factor   ==> "-" Factor
 //!           |  Exponent { "^" Factor }
 //!
 //! Exponent ==> Number { "!" }
 //!
-//! Number   ==> "(" Equation ")"
-//!           |  "|" Equation "|"
+//! Number   ==> Function "(" Equation ")"
 //!           |  Constant
+//!           |  "(" Equation ")"
+//!           |  "|" Equation "|"
 //!           |  Digit { Digit } | Digit { Digit } "." { Digit }
 //!
 //! Function ==> "sin" | "cos" | "tan" | "asin" | "acos" | "atan" | "sqrt" | "abs" | "exp"
@@ -59,10 +57,10 @@ pub struct Parser {
 
 impl Parser {
     fn parse_equation(&mut self) -> CalcrResult<Ast> {
-        let mut lhs = try!(self.parse_term());
+        let mut lhs = try!(self.parse_product());
         while self.peek_tok_val().map_or(false, |val| *val == Op(Plus) || *val == Op(Minus)) {
             let Token { val: tok_val, span: tok_span } = self.consume_tok();
-            let rhs = try!(self.parse_term());
+            let rhs = try!(self.parse_product());
             lhs = Ast {
                 val: AstVal::Op(tok_val.op().unwrap()),
                 span: tok_span,
@@ -86,47 +84,11 @@ impl Parser {
         }
     }
 
-    fn parse_term(&mut self) -> CalcrResult<Ast> {
-        // check if we have a function
-        let func_opt = self.peek_tok_val().and_then(|val| {
-            if let Name(ref name) = *val {
-                match name.as_ref() {
-                    "cos" => Some(Cos),
-                    "sin" => Some(Sin),
-                    "tan" => Some(Tan),
-                    "asin" => Some(Asin),
-                    "acos" => Some(Acos),
-                    "atan" => Some(Atan),
-                    "sqrt" => Some(Sqrt),
-                    "abs" => Some(Abs),
-                    "exp" => Some(Exp),
-                    "ln" => Some(Ln),
-                    "log" => Some(Log),
-                    _ => None,
-                }
-            } else {
-                None
-            }
-        });
-
-        if let Some(func) = func_opt {
-            let Token { val: _, span: tok_span } = self.consume_tok();
-            let arg = try!(self.parse_product());
-            Ok(Ast {
-                val: AstVal::Func(func),
-                span: tok_span,
-                branches: Unary(Box::new(arg)),
-            })
-        } else {
-            self.parse_product()
-        }
-    }
-
     fn parse_product(&mut self) -> CalcrResult<Ast> {
         let mut lhs = try!(self.parse_factor());
         while self.peek_tok_val().map_or(false, |val| *val == Op(Mult) || *val == Op(Div)) {
             let Token { val: tok_val, span: tok_span } = self.consume_tok();
-            let rhs = try!(self.parse_term());
+            let rhs = try!(self.parse_factor());
             lhs = Ast {
                 val: AstVal::Op(tok_val.op().unwrap()),
                 span: tok_span,
@@ -186,6 +148,52 @@ impl Parser {
         } else {
             let Token { val: tok_val, span: tok_span } = self.consume_tok();
             match tok_val {
+                Name(ref name) => {
+                    let val = match name.as_ref() {
+                        "pi" => AstVal::Const(Pi),
+                        "e" => AstVal::Const(E),
+                        "phi" => AstVal::Const(Phi),
+                        "cos" => AstVal::Func(Cos),
+                        "sin" => AstVal::Func(Sin),
+                        "tan" => AstVal::Func(Tan),
+                        "asin" => AstVal::Func(Asin),
+                        "acos" => AstVal::Func(Acos),
+                        "atan" => AstVal::Func(Atan),
+                        "sqrt" => AstVal::Func(Sqrt),
+                        "abs" => AstVal::Func(Abs),
+                        "exp" => AstVal::Func(Exp),
+                        "ln" => AstVal::Func(Ln),
+                        "log" => AstVal::Func(Log),
+                        _ => return Err(CalcrError {
+                            desc: format!("Invalid function or constant: {}", name),
+                            span: Some(tok_span),
+                        }),
+                    };
+                    if let AstVal::Func(_) = val {
+                        // it's a function so we need to grab its argument
+                        if self.peek_tok_val().map_or(false, |val| *val == ParenOpen) {
+                            // since we know the next token is an open paren, we use
+                            // this function to get its AST
+                            let arg = try!(self.parse_equation());
+                            Ok(Ast {
+                                val: val,
+                                span: tok_span,
+                                branches: Unary(Box::new(arg)),
+                            })
+                        } else {
+                            Err(CalcrError {
+                                desc: "Missing opening parentheses after function".to_string(),
+                                span: Some(tok_span),
+                            })
+                        }
+                    } else {
+                        Ok(Ast {
+                            val: val,
+                            span: tok_span,
+                            branches: Leaf,
+                        })
+                    }
+                },
                 ParenOpen => {
                     self.paren_level += 1;
                     let eq = try!(self.parse_equation());
@@ -221,23 +229,6 @@ impl Parser {
                             branches: Unary(Box::new(eq)),
                         })
                     }
-                },
-                Name(ref name) => {
-                    // at this point any Name, HAS to be a known constant
-                    let cnst = match name.as_ref() {
-                        "pi" => Pi,
-                        "e" => E,
-                        "phi" => Phi,
-                        _ => return Err(CalcrError {
-                            desc: format!("Invalid function or constant: {}", name),
-                            span: Some(tok_span),
-                        }),
-                    };
-                    Ok(Ast {
-                        val: AstVal::Const(cnst),
-                        span: tok_span,
-                        branches: Leaf,
-                    })
                 },
                 Num(num) => {
                     Ok(Ast {
