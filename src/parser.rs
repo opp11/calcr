@@ -58,7 +58,7 @@ pub struct Parser {
 impl Parser {
     fn parse_equation(&mut self) -> CalcrResult<Ast> {
         let mut lhs = try!(self.parse_product());
-        while self.peek_tok_val().map_or(false, |val| *val == Op(Plus) || *val == Op(Minus)) {
+        while !self.next_tok_matches(|val| *val == Op(Plus) || *val == Op(Minus)) {
             let Token { val: tok_val, span: tok_span } = self.consume_tok();
             let rhs = try!(self.parse_product());
             lhs = Ast {
@@ -67,13 +67,13 @@ impl Parser {
                 branches: Binary(Box::new(lhs), Box::new(rhs)),
             }
         }
-        if self.peek_tok_val().map_or(false, |val| *val == ParenClose) && self.paren_level < 1 {
+        if self.next_tok_is(ParenClose) && self.paren_level < 1 {
             let Token { val: _, span: tok_span } = self.consume_tok();
             Err(CalcrError {
                 desc: format!("Missing opening parentheses"),
                 span: Some(tok_span),
             })
-        } else if self.peek_tok_val().map_or(false, |val| *val == AbsDelim) && self.abs_level < 1 {
+        } else if self.next_tok_is(AbsDelim) && self.abs_level < 1 {
             let Token { val: _, span: tok_span } = self.consume_tok();
             Err(CalcrError {
                 desc: format!("Missing opening abs delimiter"),
@@ -86,7 +86,7 @@ impl Parser {
 
     fn parse_product(&mut self) -> CalcrResult<Ast> {
         let mut lhs = try!(self.parse_factor());
-        while self.peek_tok_val().map_or(false, |val| *val == Op(Mult) || *val == Op(Div)) {
+        while self.next_tok_matches(|val| *val == Op(Mult) || *val == Op(Div)) {
             let Token { val: tok_val, span: tok_span } = self.consume_tok();
             let rhs = try!(self.parse_factor());
             lhs = Ast {
@@ -101,7 +101,7 @@ impl Parser {
     fn parse_factor(&mut self) -> CalcrResult<Ast> {
         // when we lex we only store `Minus`s since we do not have any context there,
         // however we know if we see a `Minus` now, then it is a `Neg`.
-        if self.peek_tok_val().map_or(false, |val| *val == Op(Minus)) {
+        if self.next_tok_is(Op(Minus)) {
             let tok_span = self.consume_tok().span;
             let rhs = try!(self.parse_factor());
             Ok(Ast {
@@ -111,7 +111,7 @@ impl Parser {
             })
         } else {
             let lhs = try!(self.parse_exponent());
-            if self.peek_tok_val().map_or(false, |val| *val == Op(Pow)) {
+            if self.next_tok_is(Op(Pow)) {
                 let tok_span = self.consume_tok().span;
                 let rhs = try!(self.parse_factor());
                 Ok(Ast {
@@ -128,7 +128,7 @@ impl Parser {
     fn parse_exponent(&mut self) -> CalcrResult<Ast> {
         let mut out = try!(self.parse_number());
 
-        while self.peek_tok_val().map_or(false, |val| *val == Op(Fact)) {
+        while self.next_tok_is(Op(Fact)) {
             let tok_span = self.consume_tok().span;
             out = Ast {
                 val: AstVal::Op(Fact),
@@ -171,7 +171,7 @@ impl Parser {
                     };
                     if let AstVal::Func(_) = val {
                         // it's a function so we need to grab its argument
-                        if self.peek_tok_val().map_or(false, |val| *val == ParenOpen) {
+                        if self.next_tok_is(ParenOpen) {
                             // since we know the next token is an open paren, we use
                             // this function to get its AST
                             let arg = try!(self.parse_equation());
@@ -197,7 +197,7 @@ impl Parser {
                 ParenOpen => {
                     self.paren_level += 1;
                     let eq = try!(self.parse_equation());
-                    if self.peek_tok_val().map_or(false, |val| *val != ParenClose) {
+                    if !self.next_tok_is(ParenClose) {
                         Err(CalcrError {
                             desc: "Missing closing parentheses".to_string(),
                             span: Some(tok_span),
@@ -215,7 +215,7 @@ impl Parser {
                 AbsDelim => {
                     self.abs_level += 1;
                     let eq = try!(self.parse_equation());
-                    if self.peek_tok_val().map_or(false, |val| *val != AbsDelim) {
+                    if !self.next_tok_is(AbsDelim) {
                         Err(CalcrError {
                             desc: "Missing closing abs delimiter".to_string(),
                             span: Some(tok_span),
@@ -245,14 +245,19 @@ impl Parser {
         }
     }
 
+    /// Peeks at the next token and check whether its values is equal to `val`
+    fn next_tok_is(&mut self, val: TokVal) -> bool {
+        self.next_tok_matches(|v| *v == val)
+    }
+
+    /// Peeks at the next token and checks whether its value makes `pred` true
+    fn next_tok_matches<F>(&mut self, pred: F) -> bool where F: FnOnce(&TokVal) -> bool {
+        self.iter.peek().map_or(false, |ref tok| pred(&tok.val))
+    }
+
     /// Checks if we have run out of `Token`s to parse
     fn toks_empty(&mut self) -> bool {
         self.iter.peek().is_none()
-    }
-
-    /// Peeks at the next `Token` and returns `Some` if one was found, or `None` if none are left
-    fn peek_tok_val(&mut self) -> Option<&TokVal> {
-        self.iter.peek().and_then(|ref tok| Some(&tok.val))
     }
 
     /// Consumes a `Token` - thereby advanding `pos` - and returns it
