@@ -13,7 +13,7 @@ mod lexer;
 mod token;
 
 const PROG_NAME: &'static str = "calcr";
-const VERSION: &'static str = "v0.2.4";
+const VERSION: &'static str = "v0.3.0";
 
 fn main() {
     let args: Vec<String> = env::args().collect();
