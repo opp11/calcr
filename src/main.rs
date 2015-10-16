@@ -55,7 +55,7 @@ fn process_eq(eq: &String) -> CalcrResult<f64> {
 fn run_enviroment() {
     print_version();
     let mut buf = String::new();
-    let mut in_stream = std::io::stdin();
+    let in_stream = std::io::stdin();
     let mut out_stream = std::io::stdout();
     loop {
         print!(">> ");
