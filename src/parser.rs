@@ -58,7 +58,7 @@ pub struct Parser {
 impl Parser {
     fn parse_equation(&mut self) -> CalcrResult<Ast> {
         let mut lhs = try!(self.parse_product());
-        while !self.next_tok_matches(|val| *val == Op(Plus) || *val == Op(Minus)) {
+        while self.next_tok_matches(|val| *val == Op(Plus) || *val == Op(Minus)) {
             let Token { val: tok_val, span: tok_span } = self.consume_tok();
             let rhs = try!(self.parse_product());
             lhs = Ast {
