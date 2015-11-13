@@ -6,3 +6,5 @@ authors = ["Patrick M Jensen <patmjen@gmail.com>"]
 
 [dependencies]
 getopts = "*"
+termios = "*"
+libc = "*"

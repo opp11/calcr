@@ -1,9 +1,13 @@
 extern crate getopts;
+extern crate termios;
+extern crate libc;
 
 use std::env;
-use std::io::Write;
+use std::io;
 use getopts::Options;
 use errors::CalcrResult;
+use input::{InputHandler, PosixInputHandler};
+use input::InputCmd;
 
 mod parser;
 mod ast;
@@ -11,6 +15,7 @@ mod errors;
 mod evaluator;
 mod lexer;
 mod token;
+mod input;
 
 const PROG_NAME: &'static str = "calcr";
 const VERSION: &'static str = "v0.3.1";
@@ -42,7 +47,7 @@ fn main() {
             }
         }
     } else {
-        run_enviroment();
+        run_enviroment(PosixInputHandler::new()).ok().unwrap(); // TODO: Deal with the error case
     }
 }
 
@@ -52,32 +57,29 @@ fn process_eq(eq: &String) -> CalcrResult<f64> {
     evaluator::eval_eq(&ast)
 }
 
-fn run_enviroment() {
+fn run_enviroment<H: InputHandler>(mut ih: H) -> io::Result<()> {
+    try!(ih.start());
     print_version();
-    let mut buf = String::new();
-    let in_stream = std::io::stdin();
-    let mut out_stream = std::io::stdout();
     loop {
-        print!(">> ");
-        // we explicitly call flush on stdout, or else the '>>' prompt won't be printed untill
-        // after we have read the user's input
-        out_stream.flush().ok().expect("Fatal error while writing prompt");
-        in_stream.read_line(&mut buf).ok().expect("Fatal error while reading input");
-        let eq = buf.trim().to_string();
-        if eq == "quit" {
-            break;
+        ih.print_prompt();
+        match ih.handle_input() {
+            InputCmd::Quit => break,
+            InputCmd::Equation(eq) => {
+                match process_eq(&eq) {
+                    Ok(num) => println!("{}", num.to_string()),
+                    Err(e) => e.print(Some(&eq)),
+                }
+            },
+            InputCmd::None => {} // do nothing
         }
-        match process_eq(&eq) {
-            Ok(num) => println!("{}", num),
-            Err(e) => e.print(Some(&eq)),
-        }
-        buf.clear();
     }
+    println!(""); // an extra newline to make sure the terminal looks tidy
+    Ok(())
 }
 
 fn print_usage(opts: Options) {
     let brief = format!("Usage:\n    {} [options...] [equation...]", PROG_NAME);
-    print!("{}", opts.usage(&brief));
+    println!("{}", opts.usage(&brief));
 }
 
 fn print_version() {
