@@ -43,7 +43,10 @@ fn main() {
         for eq in matches.free {
             match process_eq(&eq) {
                 Ok(num) => println!("{}", num),
-                Err(e) => e.print(Some(&eq)),
+                Err(e) => {
+                    println!("{}", e);
+                    e.print_location_highlight(&eq);
+                },
             }
         }
     } else {
@@ -67,7 +70,10 @@ fn run_enviroment<H: InputHandler>(mut ih: H) -> io::Result<()> {
             InputCmd::Equation(eq) => {
                 match process_eq(&eq) {
                     Ok(num) => println!("{}", num.to_string()),
-                    Err(e) => e.print(Some(&eq)),
+                    Err(e) => {
+                        println!("{}", e);
+                        e.print_location_highlight(&eq);
+                    },
                 }
             },
             InputCmd::None => {} // do nothing
