@@ -1,5 +1,6 @@
 use std::io;
 use std::io::{Read, Write};
+use std::str;
 use termios::Termios;
 use termios::tcsetattr;
 use termios::{ECHO, ICANON, VTIME, VMIN, TCSANOW};
@@ -7,6 +8,10 @@ use libc::consts::os::posix88::STDIN_FILENO;
 use super::CMD_PROMPT;
 use super::{InputHandler, InputCmd};
 use super::Key;
+
+const UFT8_MASK: u8     = 0b_1100_0000;
+const UFT8_LEAD: u8     = 0b_1100_0000;
+const UTF8_CONTINUE: u8 = 0b_1000_0000;
 
 const ESC_CHAR: u8 = 0x1B;
 const UNKNOWN_ES: [u8; 2] = [ESC_CHAR, '[' as u8];
@@ -35,25 +40,28 @@ const F10_ES:     [u8; 5] = [ESC_CHAR, '[' as u8, '2' as u8, '1' as u8, '~' as u
 const F11_ES:     [u8; 5] = [ESC_CHAR, '[' as u8, '2' as u8, '3' as u8, '~' as u8];
 const F12_ES:     [u8; 5] = [ESC_CHAR, '[' as u8, '2' as u8, '4' as u8, '~' as u8];
 
+#[derive(Debug)]
 pub struct PosixInputHandler {
-    byte_buf: [u8; 512],    // Byte buffer, which is filled when reading
+    byte_buf: [u8; 32],     // Byte buffer, which is filled when reading
     byte_count: usize,      // Number of bytes used in the byte buffer
     line_hist: Vec<String>, // The line history
     line_buf: Vec<String>,  // An editable buffer of the previous- and the current line
     line_idx: usize,        // The index in the line buffer
-    line_pos: usize,        // The cursor position in the current line
+    line_byte_pos: usize,   // The byte position in the current line
+    cursor_pos: usize,      // The cursor position in the current line
     orig_termios: Option<Termios>,
 }
 
 impl PosixInputHandler {
     pub fn new() -> PosixInputHandler {
         let mut out = PosixInputHandler {
-            byte_buf: [0; 512],
+            byte_buf: [0; 32],
             byte_count: 0,
             line_hist: Vec::new(),
             line_buf: Vec::new(),
             line_idx: 0,
-            line_pos: 0,
+            line_byte_pos: 0,
+            cursor_pos: 0,
             orig_termios: None,
         };
         out.line_buf.push(String::new());
@@ -72,8 +80,8 @@ impl PosixInputHandler {
             0x09 => (Key::Tab, 1),
             0x0A => (Key::Enter, 1),
             0x20...0x7E => (Key::Char(byte as char), 1), // printable ASCII
+            byte if is_utf8_lead(byte) => self.parse_utf8_char(), // utf8 codepoint
             // We don't know, so consume this byte and let the caller deal with it
-            // TODO: This might be unicode, so deal with that
             _ => (Key::Unknown, 1),
         };
         self.consume_buffer(byte_len);
@@ -122,16 +130,110 @@ impl PosixInputHandler {
         }
     }
 
+    fn parse_utf8_char(&mut self) -> (Key, usize) {
+        let mut bytes = Vec::new();
+        let mut char_len = 2; // since we are bothering to parse ut8, the char is at least 2 bytes
+        let lead_byte = self.byte_buf[0];
+
+        // get the length of the utf8 char from the lead byte
+        for i in char_len..8 {
+            if lead_byte & (0b_1000_0000 >> i) == 0 {
+                break
+            } else {
+                char_len += 1;
+            }
+        }
+        let mut idx = 0;
+        for _ in 0..char_len {
+            if idx >= self.byte_count {
+                // no more bytes, but we are not done, so poll some more
+                self.byte_count = 0;
+                self.poll_stdin();
+                idx = 0;
+            }
+            bytes.push(self.byte_buf[idx]);
+            idx += 1;
+        }
+        // now we try to parse it to a char
+        match str::from_utf8(&bytes[..]) {
+            Ok(s) => (Key::Char(s.chars().next().unwrap()), char_len),
+            Err(_) => (Key::Unknown, char_len),
+        }
+    }
+
     /// Consumes `count` bytes from the front of the the buffer
     ///
     /// The first `count` bytes are removed from the buffer by moving the rest of the bytes
     /// forwards.
     fn consume_buffer(&mut self, count: usize) {
-        for i in 0..count {
-            self.byte_buf[i] = self.byte_buf[i+1];
+        for i in 0..self.byte_count {
+            self.byte_buf[i] = if i + count < self.byte_buf.len() {
+                self.byte_buf[i+count]
+            } else {
+                0
+            };
         }
         self.byte_count -= count;
     }
+
+    /// Moves `line_byte_pos` forward so it points to the next utf8 codepoint
+    ///
+    /// # Panics
+    /// This function panics if the current line ends before the next utf8 codepoint
+    fn to_next_char(&mut self) {
+        self.line_byte_pos += 1;
+        while self.line_byte_pos < self.line_byte_len() &&
+              is_utf8_continue(self.line_byte_at(self.line_byte_pos)) {
+            self.line_byte_pos += 1;
+        }
+    }
+
+    /// Moves `line_byte_pos` backwards so it points to the previous utf8 codepoint
+    ///
+    /// # Panics
+    /// This function panics if the current line ends before the previous utf8 codepoint
+    fn to_prev_char(&mut self) {
+        self.line_byte_pos -= 1;
+        while is_utf8_continue(self.line_byte_at(self.line_byte_pos)) {
+            self.line_byte_pos -= 1;
+        }
+    }
+
+    /// Returns the `u8` at `idx`
+    ///
+    /// # Panics
+    /// This function panics if either `line_buf` or the element looked at in `line_buf` is empty
+    fn line_byte_at(&self, idx: usize) -> u8 {
+        let bytes = self.line_buf[self.line_idx].as_bytes();
+        bytes[idx]
+    }
+
+    /// Returns the length of the current line in bytes
+    ///
+    /// # Panics
+    /// This function panics if `line_buf` is empty
+    fn line_byte_len(&self) -> usize {
+        self.line_buf[self.line_idx].len()
+    }
+
+    /// Returns the length of the current line in chars
+    ///
+    /// Note: this is O(n) as it is done by looping over all the chars in the line
+    /// # Panics
+    /// This function panics if `line_buf` is empty,
+    /// or the line contains more than `usize::MAX` chars.
+    fn line_char_len(&self) -> usize {
+        self.line_buf[self.line_idx].chars().count()
+    }
+
+}
+
+fn is_utf8_lead(byte: u8) -> bool {
+    byte & UFT8_MASK == UFT8_LEAD
+}
+
+fn is_utf8_continue(byte: u8) -> bool {
+    byte & UFT8_MASK == UTF8_CONTINUE
 }
 
 impl InputHandler for PosixInputHandler {
@@ -163,7 +265,7 @@ impl InputHandler for PosixInputHandler {
     }
 
     fn handle_input(&mut self) -> InputCmd {
-        match self.poll_keypress() {
+        let out = match self.poll_keypress() {
             Key::Esc => InputCmd::Quit,
             Key::Enter => {
                 let cmd = self.line_buf[self.line_idx].clone();
@@ -174,74 +276,85 @@ impl InputHandler for PosixInputHandler {
                     self.line_buf = self.line_hist.clone();
                     self.line_buf.push(String::new());
                     self.line_idx = self.line_buf.len() - 1;
-                    self.line_pos = 0;
+                    self.line_byte_pos = 0;
+                    self.cursor_pos = 0;
                     println!(""); // go to new line to prepare for output
                     InputCmd::Equation(cmd)
                 }
             },
             Key::Backspace => {
-                if self.line_pos > 0 {
-                    self.line_buf[self.line_idx].remove(self.line_pos - 1);
-                    self.line_pos -= 1;
+                if self.line_byte_pos > 0 {
+                    self.to_prev_char();
+                    self.line_buf[self.line_idx].remove(self.line_byte_pos);
+                    self.cursor_pos -= 1;
                 }
                 InputCmd::None
             },
             Key::Delete => {
-                if self.line_pos < self.line_buf[self.line_idx].len() {
-                    self.line_buf[self.line_idx].remove(self.line_pos);
+                if self.line_byte_pos < self.line_byte_len() {
+                    self.line_buf[self.line_idx].remove(self.line_byte_pos);
                 }
                 InputCmd::None
             },
             Key::Up => {
                 if self.line_idx > 0 {
                     self.line_idx -= 1;
-                    self.line_pos = self.line_buf[self.line_idx].len();
+                    self.line_byte_pos = self.line_byte_len();
+                    self.cursor_pos = self.line_char_len();
                 }
                 InputCmd::None
             },
             Key::Down => {
                 if self.line_idx < self.line_buf.len() - 1{
                     self.line_idx += 1;
-                    self.line_pos = self.line_buf[self.line_idx].len();
+                    self.line_byte_pos = self.line_byte_len();
+                    self.cursor_pos = self.line_char_len();
                 }
                 InputCmd::None
             },
             Key::Right => {
-                if self.line_pos < self.line_buf[self.line_idx].len() {
-                    self.line_pos += 1;
+                if self.cursor_pos < self.line_char_len() {
+                    self.to_next_char();
+                    self.cursor_pos += 1;
                 }
                 InputCmd::None
             },
             Key::Left => {
-                if self.line_pos > 0 {
-                    self.line_pos -= 1;
+                if self.cursor_pos > 0 {
+                    self.to_prev_char();
+                    self.cursor_pos -= 1;
                 }
                 InputCmd::None
             },
             Key::Home => {
-                self.line_pos = 0;
+                self.line_byte_pos = 0;
+                self.cursor_pos = 0;
                 InputCmd::None
             },
             Key::End => {
-                self.line_pos = self.line_buf[self.line_idx].len();
+                self.line_byte_pos = self.line_byte_len();
+                self.cursor_pos = self.line_char_len();
                 InputCmd::None
             },
             Key::Char(ch) => {
-                self.line_buf[self.line_idx].insert(self.line_pos, ch);
-                self.line_pos += 1;
+                self.line_buf[self.line_idx].insert(self.line_byte_pos, ch);
+                self.line_byte_pos += ch.len_utf8();
+                self.cursor_pos += 1;
                 InputCmd::None
             },
             // For now we explicitly ignore these keys
             Key::Insert | Key::PgUp | Key::PgDown => InputCmd::None,
             _ => InputCmd::None,
-        }
+        };
+        println!("\n{:?}", self);
+        out
     }
 
     fn print_prompt(&self) {
         print!("\r\x1B[K"); // move back to the beginning of the line, and erase the old line
-        print!("{}{}", CMD_PROMPT, self.line_buf[self.line_idx]);
-        print!("\r\x1B[{}C", self.line_pos + CMD_PROMPT.len());
-        // We explicitly call flush on stdout, or else the '>>' prompt won't be printed untill
+        print!("{}{}", CMD_PROMPT, self.line_buf[self.line_idx]); // print the current line
+        print!("\r\x1B[{}C", self.cursor_pos + CMD_PROMPT.len()); // print the cursor
+        // We explicitly call flush on stdout, or else the line won't be printed untill
         // after the user presses a key.
         io::stdout().flush().ok().expect("Could not write prompt to terminal");
     }
