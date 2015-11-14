@@ -15,14 +15,12 @@
 //!           |  Constant
 //!           |  "(" Equation ")"
 //!           |  "|" Equation "|"
-//!           |  Digit { Digit } | Digit { Digit } "." { Digit }
+//!           |  NumLiteral
 //!
 //! Function ==> "sin" | "cos" | "tan" | "asin" | "acos" | "atan" | "sqrt" | "abs" | "exp"
 //!           |  "ln" | "log"
 //!
 //! Constant ==> "pi" | "e" | "phi"
-//!
-//! Digit    ==> "0".."9"
 
 use std::vec::IntoIter;
 use std::iter::Peekable;
