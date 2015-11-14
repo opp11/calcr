@@ -66,6 +66,7 @@ impl<'a> Lexer<'a> {
             '/' => Op(Div),
             '^' => Op(Pow),
             '!' => Op(Fact),
+            '√' => Name("sqrt".to_string()),
             '(' => ParenOpen,
             ')' => ParenClose,
             '|' => AbsDelim,

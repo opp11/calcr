@@ -150,16 +150,16 @@ impl Parser {
             match tok_val {
                 Name(ref name) => {
                     let val = match name.as_ref() {
-                        "pi" => AstVal::Const(Pi),
+                        "pi" | "π" => AstVal::Const(Pi),
                         "e" => AstVal::Const(E),
-                        "phi" => AstVal::Const(Phi),
+                        "phi" | "ϕ" => AstVal::Const(Phi),
                         "cos" => AstVal::Func(Cos),
                         "sin" => AstVal::Func(Sin),
                         "tan" => AstVal::Func(Tan),
                         "asin" => AstVal::Func(Asin),
                         "acos" => AstVal::Func(Acos),
                         "atan" => AstVal::Func(Atan),
-                        "sqrt" => AstVal::Func(Sqrt),
+                        "sqrt" | "√" => AstVal::Func(Sqrt),
                         "abs" => AstVal::Func(Abs),
                         "exp" => AstVal::Func(Exp),
                         "ln" => AstVal::Func(Ln),
