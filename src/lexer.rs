@@ -51,7 +51,7 @@ impl<'a> Lexer<'a> {
 
     fn lex_name(&mut self) -> CalcrResult<Token> {
         let name_str = self.consume_while(|ch| ch.is_alphabetic());
-        let name_len = name_str.len();
+        let name_len = name_str.chars().count();
         Ok(Token {
             val: Name(name_str),
             span: (self.pos - name_len, self.pos),
