@@ -164,6 +164,10 @@ impl Parser {
                         "exp" => AstVal::Func(Exp),
                         "ln" => AstVal::Func(Ln),
                         "log" => AstVal::Func(Log),
+                        "exit" => return Err(CalcrError {
+                            desc: format!("Invalid function or constant (did you mean 'quit'?): {}", name),
+                            span: Some(tok_span),
+                        }),
                         _ => return Err(CalcrError {
                             desc: format!("Invalid function or constant: {}", name),
                             span: Some(tok_span),
