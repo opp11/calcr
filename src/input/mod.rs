@@ -6,6 +6,7 @@ mod posix;
 
 const CMD_PROMPT: &'static str = ">> ";
 
+#[derive(Debug)]
 enum Key {
     Esc,
     Enter,
