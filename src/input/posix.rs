@@ -265,7 +265,7 @@ impl InputHandler for PosixInputHandler {
     }
 
     fn handle_input(&mut self) -> InputCmd {
-        let out = match self.poll_keypress() {
+        match self.poll_keypress() {
             Key::Esc => InputCmd::Quit,
             Key::Enter => {
                 let cmd = self.line_buf[self.line_idx].clone();
@@ -345,9 +345,7 @@ impl InputHandler for PosixInputHandler {
             // For now we explicitly ignore these keys
             Key::Insert | Key::PgUp | Key::PgDown => InputCmd::None,
             _ => InputCmd::None,
-        };
-        println!("\n{:?}", self);
-        out
+        }
     }
 
     fn print_prompt(&self) {
