@@ -116,3 +116,51 @@ impl<'a> Lexer<'a> {
         self.consume_while(|ch| ch.is_whitespace());
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::lex_equation;
+    use token::Token;
+    use token::TokVal::*;
+    use ast::OpKind::*;
+
+    #[test]
+    fn empty() {
+        let eq = "".to_string();
+        let toks = lex_equation(&eq);
+        assert_eq!(toks, Ok(vec!()));
+    }
+
+    #[test]
+    fn single_char() {
+        let eq = "2".to_string();
+        let toks = lex_equation(&eq);
+        assert_eq!(toks, Ok(vec!(Token { val: Num(2.0), span: (0, 1) })));
+    }
+
+    #[test]
+    fn utf8() {
+        let eq = "π𐍈".to_string();
+        let toks = lex_equation(&eq);
+        assert_eq!(toks, Ok(vec!(Token { val: Name(eq), span: (0, 2) })));
+    }
+
+    #[test]
+    fn ops() {
+        let eq = "+-*/!^".to_string();
+        let toks = lex_equation(&eq);
+        assert_eq!(toks, Ok(vec!(Token { val: Op(Plus), span: (0,1) },
+                                 Token { val: Op(Minus), span: (1,2) },
+                                 Token { val: Op(Mult), span: (2,3) },
+                                 Token { val: Op(Div), span: (3,4) },
+                                 Token { val: Op(Fact), span: (4,5) },
+                                 Token { val: Op(Pow), span: (5,6) })));
+    }
+
+    #[test]
+    fn invalid_char() {
+        let eq = "?".to_string();
+        let err = lex_equation(&eq);
+        assert!(err.is_err());
+    }
+}
