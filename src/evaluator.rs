@@ -1,4 +1,5 @@
 use std::f64;
+use std::collections::HashMap;
 use ast::{Ast, ConstKind, FuncKind, OpKind};
 use ast::AstVal::*;
 use ast::FuncKind::*;
@@ -6,30 +7,57 @@ use ast::OpKind::*;
 use ast::ConstKind::*;
 use ast::AstBranch::*;
 use lexer::lex_equation;
-use parser::parse_equation;
+use parser::parse_tokens;
 use errors::{CalcrResult, CalcrError};
 
 pub struct Evaluator {
+    vars: HashMap<String, f64>,
     last_result: f64,
 }
 
 impl Evaluator {
     pub fn new() -> Evaluator {
         Evaluator {
+            vars: HashMap::new(),
             last_result: 0.0,
         }
     }
 
-    pub fn eval_equation(&mut self, eq: &String) -> CalcrResult<f64> {
-        let toks = try!(lex_equation(eq));
-        let ast = try!(parse_equation(toks));
-        let result = self.eval_eq(&ast);
-        if let Ok(ref res) = result {
+    pub fn eval_expression(&mut self, expr: &String) -> CalcrResult<Option<f64>> {
+        let toks = try!(lex_equation(expr));
+        let ast = try!(parse_tokens(toks));
+        let result = self.eval_expr(&ast);
+        // if we got an actual number as the result, then store it for later use
+        if let Ok(Some(ref res)) = result {
             self.last_result = *res;
         }
         result
     }
 
+    fn eval_expr(&mut self, ast: &Ast) -> CalcrResult<Option<f64>> {
+        if ast.val == Op(Assign) {
+            if let Binary(ref name_ast, ref val_ast) = ast.branches {
+                if let Name(ref name) = name_ast.val {
+                    let val = try!(self.eval_eq(val_ast));
+                    self.vars.insert(name.clone(), val);
+                    Ok(None)
+                } else {
+                    Err(CalcrError {
+                        desc: "Interal error - expected Assign to have Name in left branch"
+                              .to_string(),
+                        span: None,
+                    })
+                }
+            } else {
+                Err(CalcrError {
+                    desc: "Interal error - expected Assign to have binary branch".to_string(),
+                    span: None,
+                })
+            }
+        } else {
+            self.eval_eq(ast).map(|val| Some(val))
+        }
+    }
 
     fn eval_eq(&mut self, ast: &Ast) -> CalcrResult<f64> {
         match ast.val {
@@ -38,6 +66,16 @@ impl Evaluator {
             Const(ref c) => self.eval_const(c),
             Num(ref n) => Ok(*n),
             LastResult => Ok(self.last_result),
+            Name(ref name) => {
+                if let Some(val) = self.vars.get(name) {
+                    Ok(*val)
+                } else {
+                    Err(CalcrError {
+                        desc: format!("Invalid function or constant: {}", name),
+                        span: Some(ast.get_total_span()),
+                    })
+                }
+            }
             Paren => {
                 if let Unary(ref child) = ast.branches {
                     self.eval_eq(child)

@@ -9,11 +9,17 @@ pub struct Token {
 #[derive(Debug, PartialEq, Clone)]
 pub enum TokVal {
     Name(String),
+    Keyword(KeywordKind),
     Num(f64),
     Op(OpKind),
     ParenOpen,
     ParenClose,
     AbsDelim
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub enum KeywordKind {
+    Let,
 }
 
 impl TokVal {

@@ -47,6 +47,7 @@ pub enum AstVal {
     Const(ConstKind),
     Num(f64),
     LastResult,
+    Name(String),
     Paren,
 }
 
@@ -74,6 +75,7 @@ pub enum OpKind {
     Pow,
     Fact,
     Neg,
+    Assign,
 }
 
 #[derive(Debug, PartialEq)]

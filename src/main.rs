@@ -42,12 +42,13 @@ fn main() {
     } else if !matches.free.is_empty() {
         let mut eval = Evaluator::new();
         for eq in matches.free {
-            match eval.eval_equation(&eq) {
-                Ok(num) => println!("{}", num),
+            match eval.eval_expression(&eq) {
+                Ok(Some(num)) => println!("{}", num),
                 Err(e) => {
                     println!("{}", e);
                     e.print_location_highlight(&eq);
                 },
+                _ => {}, // do nothing
             }
         }
     } else {
@@ -64,12 +65,13 @@ fn run_enviroment<H: InputHandler>(mut ih: H) -> io::Result<()> {
         match ih.handle_input() {
             InputCmd::Quit => break,
             InputCmd::Equation(eq) => {
-                match eval.eval_equation(&eq) {
-                    Ok(num) => println!("{}", num.to_string()),
+                match eval.eval_expression(&eq) {
+                    Ok(Some(num)) => println!("{}", num.to_string()),
                     Err(e) => {
                         println!("{}", e);
                         e.print_location_highlight(&eq);
                     },
+                    _ => {} // do nothing
                 }
             },
             InputCmd::None => {} // do nothing

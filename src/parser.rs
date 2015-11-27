@@ -1,27 +1,31 @@
 //! The parser is based on the following grammar
 //!
-//! Equation ==> Product { "+" Product }
-//!           |  Product { "-" Product }
+//! Expression ==> "let" Name "=" Equation
+//!             |  Equation
 //!
-//! Product  ==> Factor { "*" Factor }
-//!           |  Factor { "/" Factor }
+//! Equation   ==> Product { "+" Product }
+//!             |  Product { "-" Product }
 //!
-//! Factor   ==> "-" Factor
-//!           |  Exponent { "^" Factor }
+//! Product    ==> Factor { "*" Factor }
+//!             |  Factor { "/" Factor }
 //!
-//! Exponent ==> Number { "!" }
+//! Factor     ==> "-" Factor
+//!             |  Exponent { "^" Factor }
 //!
-//! Number   ==> Function "(" Equation ")"
-//!           |  Constant
-//!           |  "ans"
-//!           |  "(" Equation ")"
-//!           |  "|" Equation "|"
-//!           |  NumLiteral
+//! Exponent   ==> Number { "!" }
 //!
-//! Function ==> "sin" | "cos" | "tan" | "asin" | "acos" | "atan" | "sqrt" | "abs" | "exp"
-//!           |  "ln" | "log"
+//! Number     ==> Function "(" Equation ")"
+//!             |  Constant
+//!             |  Name
+//!             |  "ans"
+//!             |  "(" Equation ")"
+//!             |  "|" Equation "|"
+//!             |  NumLiteral
 //!
-//! Constant ==> "pi" | "e" | "phi"
+//! Function   ==> "sin" | "cos" | "tan" | "asin" | "acos" | "atan" | "sqrt" | "abs" | "exp"
+//!             |  "ln" | "log"
+//!
+//! Constant   ==> "pi" | "e" | "phi"
 
 use std::vec::IntoIter;
 use std::iter::Peekable;
@@ -35,8 +39,9 @@ use ast::OpKind::*;
 use token::Token;
 use token::TokVal;
 use token::TokVal::*;
+use token::KeywordKind::*;
 
-pub fn parse_equation(tokens: Vec<Token>) -> CalcrResult<Ast> {
+pub fn parse_tokens(tokens: Vec<Token>) -> CalcrResult<Ast> {
     let end_pos = tokens.last().and_then(|tok| Some(tok.span.1)).unwrap_or(0);
     let mut parser = Parser {
         iter: tokens.into_iter().peekable(),
@@ -44,7 +49,28 @@ pub fn parse_equation(tokens: Vec<Token>) -> CalcrResult<Ast> {
         abs_level: 0,
         end_pos: end_pos,
     };
-    parser.parse_equation()
+    parser.parse_expression()
+}
+
+fn get_builtin_name(name: &String) -> Option<AstVal> {
+    match name.as_ref() {
+        "ans" => Some(AstVal::LastResult),
+        "pi" | "π" => Some(AstVal::Const(Pi)),
+        "e" => Some(AstVal::Const(E)),
+        "phi" | "ϕ" => Some(AstVal::Const(Phi)),
+        "cos" => Some(AstVal::Func(Cos)),
+        "sin" => Some(AstVal::Func(Sin)),
+        "tan" => Some(AstVal::Func(Tan)),
+        "asin" => Some(AstVal::Func(Asin)),
+        "acos" => Some(AstVal::Func(Acos)),
+        "atan" => Some(AstVal::Func(Atan)),
+        "sqrt" | "√" => Some(AstVal::Func(Sqrt)),
+        "abs" => Some(AstVal::Func(Abs)),
+        "exp" => Some(AstVal::Func(Exp)),
+        "ln" => Some(AstVal::Func(Ln)),
+        "log" => Some(AstVal::Func(Log)),
+        _ => None
+    }
 }
 
 pub struct Parser {
@@ -55,6 +81,54 @@ pub struct Parser {
 }
 
 impl Parser {
+    fn parse_expression(&mut self) -> CalcrResult<Ast> {
+        if self.next_tok_is(Keyword(Let)) {
+            self.consume_tok();
+            if !self.toks_empty() {
+                let Token { val: tok_val, span: tok_span } = self.consume_tok();
+                match tok_val {
+                    Name(ref name) if get_builtin_name(name).is_none() => {
+                        if self.next_tok_is(Op(Assign)) {
+                            let assign_tok = self.consume_tok();
+                            let eq = try!(self.parse_equation());
+                            let name_ast = Ast {
+                                val: AstVal::Name(name.clone()),
+                                span: tok_span,
+                                branches: Leaf,
+                            };
+                            Ok(Ast {
+                                val: AstVal::Op(Assign),
+                                span: assign_tok.span,
+                                branches: Binary(Box::new(name_ast), Box::new(eq)),
+                            })
+                        } else {
+                            Err(CalcrError {
+                                desc: "Expected assignment operator '=' after name".to_string(),
+                                span: Some(tok_span),
+                            })
+                        }
+                    },
+                    Name(ref name) => Err(CalcrError {
+                        desc: format!("Cannot assign to builtin name '{}'", name),
+                        span: Some(tok_span),
+                    }),
+                    _ => Err(CalcrError {
+                        desc: "Expected name to assign to".to_string(),
+                        span: Some(tok_span),
+                    }),
+                }
+            } else {
+                Err(CalcrError {
+                    desc: "Expected name to assign to".to_string(),
+                    span: Some((self.end_pos, self.end_pos)),
+                })
+            }
+
+        } else {
+            self.parse_equation()
+        }
+    }
+
     fn parse_equation(&mut self) -> CalcrResult<Ast> {
         let mut lhs = try!(self.parse_product());
         while self.next_tok_matches(|val| *val == Op(Plus) || *val == Op(Minus)) {
@@ -148,30 +222,9 @@ impl Parser {
             let Token { val: tok_val, span: tok_span } = self.consume_tok();
             match tok_val {
                 Name(ref name) => {
-                    let val = match name.as_ref() {
-                        "ans" => AstVal::LastResult,
-                        "pi" | "π" => AstVal::Const(Pi),
-                        "e" => AstVal::Const(E),
-                        "phi" | "ϕ" => AstVal::Const(Phi),
-                        "cos" => AstVal::Func(Cos),
-                        "sin" => AstVal::Func(Sin),
-                        "tan" => AstVal::Func(Tan),
-                        "asin" => AstVal::Func(Asin),
-                        "acos" => AstVal::Func(Acos),
-                        "atan" => AstVal::Func(Atan),
-                        "sqrt" | "√" => AstVal::Func(Sqrt),
-                        "abs" => AstVal::Func(Abs),
-                        "exp" => AstVal::Func(Exp),
-                        "ln" => AstVal::Func(Ln),
-                        "log" => AstVal::Func(Log),
-                        "exit" => return Err(CalcrError {
-                            desc: format!("Invalid function or constant (did you mean 'quit'?): {}", name),
-                            span: Some(tok_span),
-                        }),
-                        _ => return Err(CalcrError {
-                            desc: format!("Invalid function or constant: {}", name),
-                            span: Some(tok_span),
-                        }),
+                    let val = match get_builtin_name(name) {
+                        Some(val) => val,
+                        None => AstVal::Name(name.clone()),
                     };
                     if let AstVal::Func(_) = val {
                         // it's a function so we need to grab its argument
