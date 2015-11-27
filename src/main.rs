@@ -5,9 +5,9 @@ extern crate libc;
 use std::env;
 use std::io;
 use getopts::Options;
-use errors::CalcrResult;
 use input::{InputHandler, PosixInputHandler};
 use input::InputCmd;
+use evaluator::Evaluator;
 
 mod parser;
 mod ast;
@@ -40,8 +40,9 @@ fn main() {
     } else if matches.opt_present("v") {
         print_version();
     } else if !matches.free.is_empty() {
+        let mut eval = Evaluator::new();
         for eq in matches.free {
-            match process_eq(&eq) {
+            match eval.eval_equation(&eq) {
                 Ok(num) => println!("{}", num),
                 Err(e) => {
                     println!("{}", e);
@@ -54,21 +55,16 @@ fn main() {
     }
 }
 
-fn process_eq(eq: &String) -> CalcrResult<f64> {
-    let tokens = try!(lexer::lex_equation(&eq));
-    let ast = try!(parser::parse_equation(tokens));
-    evaluator::eval_eq(&ast)
-}
-
 fn run_enviroment<H: InputHandler>(mut ih: H) -> io::Result<()> {
     try!(ih.start());
     print_version();
+    let mut eval = Evaluator::new();
     loop {
         ih.print_prompt();
         match ih.handle_input() {
             InputCmd::Quit => break,
             InputCmd::Equation(eq) => {
-                match process_eq(&eq) {
+                match eval.eval_equation(&eq) {
                     Ok(num) => println!("{}", num.to_string()),
                     Err(e) => {
                         println!("{}", e);
