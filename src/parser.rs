@@ -13,6 +13,7 @@
 //!
 //! Number   ==> Function "(" Equation ")"
 //!           |  Constant
+//!           |  "ans"
 //!           |  "(" Equation ")"
 //!           |  "|" Equation "|"
 //!           |  NumLiteral
@@ -148,6 +149,7 @@ impl Parser {
             match tok_val {
                 Name(ref name) => {
                     let val = match name.as_ref() {
+                        "ans" => AstVal::LastResult,
                         "pi" | "π" => AstVal::Const(Pi),
                         "e" => AstVal::Const(E),
                         "phi" | "ϕ" => AstVal::Const(Phi),

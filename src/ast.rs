@@ -46,6 +46,7 @@ pub enum AstVal {
     Op(OpKind),
     Const(ConstKind),
     Num(f64),
+    LastResult,
     Paren,
 }
 

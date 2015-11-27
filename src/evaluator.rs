@@ -9,17 +9,24 @@ use lexer::lex_equation;
 use parser::parse_equation;
 use errors::{CalcrResult, CalcrError};
 
-pub struct Evaluator;
+pub struct Evaluator {
+    last_result: f64,
+}
 
 impl Evaluator {
     pub fn new() -> Evaluator {
-        Evaluator
+        Evaluator {
+            last_result: 0.0,
+        }
     }
 
     pub fn eval_equation(&mut self, eq: &String) -> CalcrResult<f64> {
         let toks = try!(lex_equation(eq));
         let ast = try!(parse_equation(toks));
         let result = self.eval_eq(&ast);
+        if let Ok(ref res) = result {
+            self.last_result = *res;
+        }
         result
     }
 
@@ -30,6 +37,7 @@ impl Evaluator {
             Op(ref o) => self.eval_op(o, ast),
             Const(ref c) => self.eval_const(c),
             Num(ref n) => Ok(*n),
+            LastResult => Ok(self.last_result),
             Paren => {
                 if let Unary(ref child) = ast.branches {
                     self.eval_eq(child)
