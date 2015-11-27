@@ -10,14 +10,14 @@ use lexer::lex_equation;
 use parser::parse_tokens;
 use errors::{CalcrResult, CalcrError};
 
-pub struct Evaluator {
+pub struct Interpreter {
     vars: HashMap<String, f64>,
     last_result: f64,
 }
 
-impl Evaluator {
-    pub fn new() -> Evaluator {
-        Evaluator {
+impl Interpreter {
+    pub fn new() -> Interpreter {
+        Interpreter {
             vars: HashMap::new(),
             last_result: 0.0,
         }

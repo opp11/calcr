@@ -7,12 +7,12 @@ use std::io;
 use getopts::Options;
 use input::{InputHandler, PosixInputHandler};
 use input::InputCmd;
-use evaluator::Evaluator;
+use interpreter::Interpreter;
 
 mod parser;
 mod ast;
 mod errors;
-mod evaluator;
+mod interpreter;
 mod lexer;
 mod token;
 mod input;
@@ -40,9 +40,9 @@ fn main() {
     } else if matches.opt_present("v") {
         print_version();
     } else if !matches.free.is_empty() {
-        let mut eval = Evaluator::new();
+        let mut interp = Interpreter::new();
         for eq in matches.free {
-            match eval.eval_expression(&eq) {
+            match interp.eval_expression(&eq) {
                 Ok(Some(num)) => println!("{}", num),
                 Err(e) => {
                     println!("{}", e);
@@ -59,13 +59,13 @@ fn main() {
 fn run_enviroment<H: InputHandler>(mut ih: H) -> io::Result<()> {
     try!(ih.start());
     print_version();
-    let mut eval = Evaluator::new();
+    let mut interp = Interpreter::new();
     loop {
         ih.print_prompt();
         match ih.handle_input() {
             InputCmd::Quit => break,
             InputCmd::Equation(eq) => {
-                match eval.eval_expression(&eq) {
+                match interp.eval_expression(&eq) {
                     Ok(Some(num)) => println!("{}", num.to_string()),
                     Err(e) => {
                         println!("{}", e);
