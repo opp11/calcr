@@ -50,7 +50,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn lex_name(&mut self) -> CalcrResult<Token> {
-        let name_str = self.consume_while(|ch| ch.is_alphabetic());
+        let name_str = self.consume_while(|ch| ch.is_alphabetic() || ch.is_numeric());
         let name_len = name_str.chars().count();
         Ok(Token {
             val: Name(name_str),
