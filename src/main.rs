@@ -1,6 +1,7 @@
 extern crate getopts;
 extern crate termios;
 extern crate libc;
+extern crate unicode_width;
 
 use std::env;
 use std::io;

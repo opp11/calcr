@@ -8,3 +8,4 @@ authors = ["Patrick M Jensen <patmjen@gmail.com>"]
 getopts = "*"
 termios = "*"
 libc = "*"
+unicode-width = "0.1.3"

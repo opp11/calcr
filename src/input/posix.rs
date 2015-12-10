@@ -1,6 +1,7 @@
 use std::io;
 use std::io::{Read, Write};
 use std::str;
+use unicode_width::{UnicodeWidthStr, UnicodeWidthChar};
 use termios::Termios;
 use termios::tcsetattr;
 use termios::{ECHO, ICANON, VTIME, VMIN, TCSANOW};
@@ -180,11 +181,18 @@ impl PosixInputHandler {
     ///
     /// # Panics
     /// This function panics if the current line ends before the next utf8 codepoint
-    fn to_next_char(&mut self) {
+    fn to_next_char(&mut self) ->  char {
+        let start = self.line_byte_pos;
         self.line_byte_pos += 1;
         while self.line_byte_pos < self.line_byte_len() &&
               is_utf8_continue(self.line_byte_at(self.line_byte_pos)) {
             self.line_byte_pos += 1;
+        }
+        let bytes = self.line_buf[self.line_idx][start..self.line_byte_pos].as_bytes();
+        unsafe {
+            // Since the line buffer only contains valid utf8, there is no need to verify it again
+            // before turning it into a strin
+            str::from_utf8_unchecked(bytes).chars().next().unwrap()
         }
     }
 
@@ -192,10 +200,17 @@ impl PosixInputHandler {
     ///
     /// # Panics
     /// This function panics if the current line ends before the previous utf8 codepoint
-    fn to_prev_char(&mut self) {
+    fn to_prev_char(&mut self) -> char {
+        let end = self.line_byte_pos;
         self.line_byte_pos -= 1;
         while is_utf8_continue(self.line_byte_at(self.line_byte_pos)) {
             self.line_byte_pos -= 1;
+        }
+        let bytes = self.line_buf[self.line_idx][self.line_byte_pos..end].as_bytes();
+        unsafe {
+            // Since the line buffer only contains valid utf8, there is no need to verify it again
+            // before turning it into a strin
+            str::from_utf8_unchecked(bytes).chars().next().unwrap()
         }
     }
 
@@ -222,8 +237,8 @@ impl PosixInputHandler {
     /// # Panics
     /// This function panics if `line_buf` is empty,
     /// or the line contains more than `usize::MAX` chars.
-    fn line_char_len(&self) -> usize {
-        self.line_buf[self.line_idx].chars().count()
+    fn line_column_len(&self) -> usize {
+        self.line_buf[self.line_idx].width()
     }
 
 }
@@ -300,7 +315,7 @@ impl InputHandler for PosixInputHandler {
                 if self.line_idx > 0 {
                     self.line_idx -= 1;
                     self.line_byte_pos = self.line_byte_len();
-                    self.cursor_pos = self.line_char_len();
+                    self.cursor_pos = self.line_column_len();
                 }
                 InputCmd::None
             },
@@ -308,21 +323,21 @@ impl InputHandler for PosixInputHandler {
                 if self.line_idx < self.line_buf.len() - 1{
                     self.line_idx += 1;
                     self.line_byte_pos = self.line_byte_len();
-                    self.cursor_pos = self.line_char_len();
+                    self.cursor_pos = self.line_column_len();
                 }
                 InputCmd::None
             },
             Key::Right => {
-                if self.cursor_pos < self.line_char_len() {
-                    self.to_next_char();
-                    self.cursor_pos += 1;
+                if self.cursor_pos < self.line_column_len() {
+                    let ch = self.to_next_char();
+                    self.cursor_pos += ch.width().unwrap_or(0);
                 }
                 InputCmd::None
             },
             Key::Left => {
                 if self.cursor_pos > 0 {
-                    self.to_prev_char();
-                    self.cursor_pos -= 1;
+                    let ch = self.to_prev_char();
+                    self.cursor_pos -= ch.width().unwrap_or(0);
                 }
                 InputCmd::None
             },
@@ -333,13 +348,13 @@ impl InputHandler for PosixInputHandler {
             },
             Key::End => {
                 self.line_byte_pos = self.line_byte_len();
-                self.cursor_pos = self.line_char_len();
+                self.cursor_pos = self.line_column_len();
                 InputCmd::None
             },
             Key::Char(ch) => {
                 self.line_buf[self.line_idx].insert(self.line_byte_pos, ch);
                 self.line_byte_pos += ch.len_utf8();
-                self.cursor_pos += 1;
+                self.cursor_pos += ch.width().unwrap_or(0);
                 InputCmd::None
             },
             // For now we explicitly ignore these keys
