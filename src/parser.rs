@@ -25,7 +25,7 @@
 //! Function   ==> "sin" | "cos" | "tan" | "asin" | "acos" | "atan" | "sqrt" | "abs" | "exp"
 //!             |  "ln" | "log"
 //!
-//! Constant   ==> "pi" | "e" | "phi"
+//! Constant   ==> "pi" | "π" | "e" | "phi" | "ϕ" | "ans"
 
 use std::vec::IntoIter;
 use std::iter::Peekable;
