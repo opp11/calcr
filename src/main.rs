@@ -19,7 +19,7 @@ mod token;
 mod input;
 
 const PROG_NAME: &'static str = "calcr";
-const VERSION: &'static str = "v0.5.1";
+const VERSION: &'static str = "v0.5.2";
 
 fn main() {
     let args: Vec<String> = env::args().collect();
