@@ -178,9 +178,6 @@ impl PosixInputHandler {
     }
 
     /// Moves `line_byte_pos` forward so it points to the next utf8 codepoint
-    ///
-    /// # Panics
-    /// This function panics if the current line ends before the next utf8 codepoint
     fn to_next_char(&mut self) ->  char {
         let start = self.line_byte_pos;
         self.line_byte_pos += 1;
