@@ -164,6 +164,22 @@ mod tests {
     }
 
     #[test]
+    fn delims() {
+        let eq = "|()".to_string();
+        let toks = lex_equation(&eq);
+        assert_eq!(toks, Ok(vec!(Token { val: AbsDelim, span: (0,1) },
+                                 Token { val: ParenOpen, span: (1,2) },
+                                 Token { val: ParenClose, span: (2,3) })));
+    }
+
+    #[test]
+    fn sqrt_single_char() {
+        let eq = "√".to_string();
+        let toks = lex_equation(&eq);
+        assert_eq!(toks, Ok(vec!(Token { val: Name("sqrt".to_string()), span: (0,1) })));
+    }
+
+    #[test]
     fn invalid_char() {
         let eq = "?".to_string();
         let err = lex_equation(&eq);
