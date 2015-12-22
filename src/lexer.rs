@@ -73,8 +73,8 @@ impl<'a> Lexer<'a> {
             '!' => Op(Fact),
             '=' => Op(Assign),
             '√' => Name("sqrt".to_string()),
-            '(' => ParenOpen,
-            ')' => ParenClose,
+            '(' | '[' => ParenOpen,
+            ')' | ']' => ParenClose,
             '|' => AbsDelim,
             ch => return Err(CalcrError {
                 desc: format!("Invalid char: {}", ch),
