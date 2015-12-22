@@ -340,32 +340,32 @@ mod tests {
     #[test]
     fn single_num() {
         let toks = vec!(Token { val: TokVal::Num(2.0), span: (0, 1) });
-        let ast = parse_equation(toks);
+        let ast = parse_tokens(toks);
         assert_eq!(ast, Ok(Ast { val: AstVal::Num(2.0), span: (0, 1), branches: AstBranch::Leaf }));
     }
 
     #[test]
     fn constants() {
-        assert_eq!(parse_equation(vec!(Token { val: TokVal::Name("pi".to_string()), span: (0, 2)})),
+        assert_eq!(parse_tokens(vec!(Token { val: TokVal::Name("pi".to_string()), span: (0, 2)})),
                    Ok(Ast { val: AstVal::Const(Pi), span: (0, 2), branches: AstBranch::Leaf }));
 
-        assert_eq!(parse_equation(vec!(Token { val: TokVal::Name("π".to_string()), span: (0, 1)})),
+        assert_eq!(parse_tokens(vec!(Token { val: TokVal::Name("π".to_string()), span: (0, 1)})),
                    Ok(Ast { val: AstVal::Const(Pi), span: (0, 1), branches: AstBranch::Leaf }));
 
-        assert_eq!(parse_equation(vec!(Token { val: TokVal::Name("e".to_string()), span: (0, 1)})),
+        assert_eq!(parse_tokens(vec!(Token { val: TokVal::Name("e".to_string()), span: (0, 1)})),
                    Ok(Ast { val: AstVal::Const(E), span: (0, 1), branches: AstBranch::Leaf }));
 
-        assert_eq!(parse_equation(vec!(Token { val: TokVal::Name("phi".to_string()), span: (0, 3)})),
+        assert_eq!(parse_tokens(vec!(Token { val: TokVal::Name("phi".to_string()), span: (0, 3)})),
                    Ok(Ast { val: AstVal::Const(Phi), span: (0, 3), branches: AstBranch::Leaf }));
 
-        assert_eq!(parse_equation(vec!(Token { val: TokVal::Name("ϕ".to_string()), span: (0, 1)})),
+        assert_eq!(parse_tokens(vec!(Token { val: TokVal::Name("ϕ".to_string()), span: (0, 1)})),
                    Ok(Ast { val: AstVal::Const(Phi), span: (0, 1), branches: AstBranch::Leaf }));
     }
 
     #[test]
     fn empty() {
         let toks = vec!();
-        let err = parse_equation(toks);
+        let err = parse_tokens(toks);
         assert!(err.is_err());
     }
 }
