@@ -153,6 +153,13 @@ mod tests {
     }
 
     #[test]
+    fn double_width() {
+        let eq = "指事字假借".to_string();
+        let toks = lex_equation(&eq);
+        assert_eq!(toks, Ok(vec!(Token { val: Name(eq), span: (0, 5) })));
+    }
+
+    #[test]
     fn ops() {
         let eq = "+-*/!^".to_string();
         let toks = lex_equation(&eq);
