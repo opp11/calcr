@@ -1,6 +1,6 @@
 //! The parser is based on the following grammar
 //!
-//! Expression ==> "let" Name "=" Equation
+//! Expression ==> Name "=" Equation
 //!             |  Equation
 //!
 //! Equation   ==> Product { "+" Product }
@@ -39,7 +39,6 @@ use ast::OpKind::*;
 use token::Token;
 use token::TokVal;
 use token::TokVal::*;
-use token::KeywordKind::*;
 
 pub fn parse_tokens(tokens: Vec<Token>) -> CalcrResult<Ast> {
     let end_pos = tokens.last().and_then(|tok| Some(tok.span.1)).unwrap_or(0);
@@ -82,50 +81,37 @@ pub struct Parser {
 
 impl Parser {
     fn parse_expression(&mut self) -> CalcrResult<Ast> {
-        if self.next_tok_is(Keyword(Let)) {
+        let eq = try!(self.parse_equation());
+        if self.toks_empty() {
+            Ok(eq)
+        } else if self.next_tok_is(Op(Assign)) {
             self.consume_tok();
-            if !self.toks_empty() {
-                let Token { val: tok_val, span: tok_span } = self.consume_tok();
-                match tok_val {
-                    Name(ref name) if get_builtin_name(name).is_none() => {
-                        if self.next_tok_is(Op(Assign)) {
-                            let assign_tok = self.consume_tok();
-                            let eq = try!(self.parse_equation());
-                            let name_ast = Ast {
-                                val: AstVal::Name(name.clone()),
-                                span: tok_span,
-                                branches: Leaf,
-                            };
-                            Ok(Ast {
-                                val: AstVal::Op(Assign),
-                                span: assign_tok.span,
-                                branches: Binary(Box::new(name_ast), Box::new(eq)),
-                            })
-                        } else {
-                            Err(CalcrError {
-                                desc: "Expected assignment operator '=' after name".to_string(),
-                                span: Some(tok_span),
-                            })
-                        }
-                    },
-                    Name(ref name) => Err(CalcrError {
-                        desc: format!("Cannot assign to builtin name '{}'", name),
-                        span: Some(tok_span),
-                    }),
-                    _ => Err(CalcrError {
-                        desc: "Expected name to assign to".to_string(),
-                        span: Some(tok_span),
-                    }),
-                }
+            if let Ast { val: AstVal::Name(_), span: _, branches: Leaf } = eq {
+                let rhs = try!(self.parse_equation());
+                Ok(Ast {
+                    val: AstVal::Op(Assign),
+                    span: (eq.span.0, rhs.span.1),
+                    branches: Binary(Box::new(eq), Box::new(rhs))
+                })
             } else {
+                let assign_target = match eq {
+                    Ast { val: AstVal::Func(_), span: _, branches: _ } => "function",
+                    Ast { val: AstVal::Const(_), span: _, branches: _ } => "constant",
+                    Ast { val: AstVal::Num(_), span: _, branches: _ } => "number",
+                    Ast { val: AstVal::LastResult, span: _, branches: _ } => "constant",
+                    Ast { val: _, span: _, branches: _ } => "equtation",
+                };
                 Err(CalcrError {
-                    desc: "Expected name to assign to".to_string(),
-                    span: Some((self.end_pos, self.end_pos)),
+                    desc: format!("Cannot assign to {}", assign_target),
+                    span: Some(eq.get_total_span()),
                 })
             }
-
         } else {
-            self.parse_equation()
+            let tok = self.consume_tok();
+            Err(CalcrError {
+                desc: "Expected operator".to_string(),
+                span: Some(tok.span),
+            })
         }
     }
 

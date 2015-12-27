@@ -3,7 +3,6 @@ use std::iter::Peekable;
 use errors::{CalcrResult, CalcrError};
 use token::Token;
 use token::TokVal::*;
-use token::KeywordKind::*;
 use ast::OpKind::*;
 
 pub fn lex_equation(eq: &String) -> CalcrResult<Vec<Token>> {
@@ -26,7 +25,7 @@ impl<'a> Lexer<'a> {
             self.consume_whitespace();
             let tok = match self.peek_char() {
                 Some(ch) if ch.is_numeric() => try!(self.lex_number()),
-                Some(ch) if ch.is_alphabetic() => try!(self.lex_name_or_keyword()),
+                Some(ch) if ch.is_alphabetic() => try!(self.lex_name()),
                 Some(_) => try!(self.lex_single_char()),
                 None => break,
             };
@@ -50,15 +49,11 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn lex_name_or_keyword(&mut self) -> CalcrResult<Token> {
+    fn lex_name(&mut self) -> CalcrResult<Token> {
         let name_str = self.consume_while(|ch| ch.is_alphabetic() || ch.is_numeric());
         let len = name_str.chars().count();
-        let val = match name_str.as_ref() {
-            "let" => Keyword(Let),
-            _ => Name(name_str),
-        };
         Ok(Token {
-            val: val,
+            val: Name(name_str),
             span: (self.pos - len, self.pos),
         })
     }
