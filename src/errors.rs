@@ -12,10 +12,14 @@ pub struct CalcrError {
 }
 
 impl CalcrError {
-    pub fn print_location_highlight(&self, input: &String) {
+    pub fn print_location_highlight(&self, input: &String, print_input: bool) {
         let (begin, end) = self.span.unwrap_or((0, input.chars().count()));
-        println!("  {}", input);
-        print!("  ");
+        if print_input {
+            println!("  {}", input);
+            print!("  ");
+        } else {
+            print!("  ");
+        }
         for _ in 0..begin {
             print!(" ");
         }

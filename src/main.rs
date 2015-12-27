@@ -47,7 +47,7 @@ fn main() {
                 Ok(Some(num)) => println!("{}", num),
                 Err(e) => {
                     println!("{}", e);
-                    e.print_location_highlight(&eq);
+                    e.print_location_highlight(&eq, true);
                 },
                 _ => {}, // do nothing
             }
@@ -69,8 +69,8 @@ fn run_enviroment<H: InputHandler>(mut ih: H) -> io::Result<()> {
                 match interp.eval_expression(&eq) {
                     Ok(Some(num)) => println!("{}", num.to_string()),
                     Err(e) => {
+                        e.print_location_highlight(&eq, false);
                         println!("{}", e);
-                        e.print_location_highlight(&eq);
                     },
                     _ => {} // do nothing
                 }
