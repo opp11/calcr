@@ -128,7 +128,8 @@ mod tests {
     use super::lex_equation;
     use token::Token;
     use token::TokVal::*;
-    use ast::OpKind::*;
+    use token::OpKind::*;
+    use token::DelimKind::*;
 
     #[test]
     fn empty() {
@@ -165,13 +166,15 @@ mod tests {
 
     #[test]
     fn delims() {
-        let eq = "|()[]".to_string();
+        let eq = "|()[]{}".to_string();
         let toks = lex_equation(&eq);
         assert_eq!(toks, Ok(vec!(Token { val: AbsDelim, span: (0,1) },
-                                 Token { val: ParenOpen, span: (1,2) },
-                                 Token { val: ParenClose, span: (2,3) },
-                                 Token { val: ParenOpen, span: (3,4) },
-                                 Token { val: ParenClose, span: (4,5) })));
+                                 Token { val: OpenDelim(Paren), span: (1,2) },
+                                 Token { val: CloseDelim(Paren), span: (2,3) },
+                                 Token { val: OpenDelim(Bracket), span: (3,4) },
+                                 Token { val: CloseDelim(Bracket), span: (4,5) },
+                                 Token { val: OpenDelim(Brace), span: (5,6) },
+                                 Token { val: CloseDelim(Brace), span: (6,7) })));
     }
 
     #[test]
