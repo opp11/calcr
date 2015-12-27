@@ -3,7 +3,8 @@ use std::iter::Peekable;
 use errors::{CalcrResult, CalcrError};
 use token::Token;
 use token::TokVal::*;
-use ast::OpKind::*;
+use token::OpKind::*;
+use token::DelimKind::*;
 
 pub fn lex_equation(eq: &String) -> CalcrResult<Vec<Token>> {
     let mut lexer = Lexer {
@@ -68,8 +69,12 @@ impl<'a> Lexer<'a> {
             '!' => Op(Fact),
             '=' => Op(Assign),
             '√' => Name("sqrt".to_string()),
-            '(' | '[' => ParenOpen,
-            ')' | ']' => ParenClose,
+            '(' => OpenDelim(Paren),
+            '[' => OpenDelim(Bracket),
+            '{' => OpenDelim(Brace),
+            ')' => CloseDelim(Paren),
+            ']' => CloseDelim(Bracket),
+            '}' => CloseDelim(Brace),
             '|' => AbsDelim,
             ch => return Err(CalcrError {
                 desc: format!("Invalid char: {}", ch),

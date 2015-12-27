@@ -14,11 +14,11 @@
 //!
 //! Exponent   ==> Number { "!" }
 //!
-//! Number     ==> Function "(" Equation ")"
+//! Number     ==> Function OpenDelim Equation CloseDelim
 //!             |  Constant
 //!             |  Name
 //!             |  "ans"
-//!             |  "(" Equation ")"
+//!             |  OpenDelim Equation CloseDelim
 //!             |  "|" Equation "|"
 //!             |  NumLiteral
 //!
@@ -26,19 +26,25 @@
 //!             |  "ln" | "log"
 //!
 //! Constant   ==> "pi" | "π" | "e" | "phi" | "ϕ" | "ans"
+//!
+//! OpenDelim  ==> "(" | "[" | "{"
+//!
+//! CloseDelim ==> ")" | "]" | "}"
 
 use std::vec::IntoIter;
 use std::iter::Peekable;
 use errors::{CalcrResult, CalcrError};
 use ast::Ast;
 use ast::AstVal;
+use ast::OpKind as AstOp;
 use ast::AstBranch::*;
 use ast::FuncKind::*;
 use ast::ConstKind::*;
-use ast::OpKind::*;
 use token::Token;
+use token::OpKind as TokOp;
 use token::TokVal;
 use token::TokVal::*;
+use token::DelimKind::*;
 
 pub fn parse_tokens(tokens: Vec<Token>) -> CalcrResult<Ast> {
     let end_pos = tokens.last().and_then(|tok| Some(tok.span.1)).unwrap_or(0);
@@ -84,12 +90,12 @@ impl Parser {
         let eq = try!(self.parse_equation());
         if self.toks_empty() {
             Ok(eq)
-        } else if self.next_tok_is(Op(Assign)) {
+        } else if self.next_tok_is(Op(TokOp::Assign)) {
             self.consume_tok();
             if let Ast { val: AstVal::Name(_), span: _, branches: Leaf } = eq {
                 let rhs = try!(self.parse_equation());
                 Ok(Ast {
-                    val: AstVal::Op(Assign),
+                    val: AstVal::Op(AstOp::Assign),
                     span: (eq.span.0, rhs.span.1),
                     branches: Binary(Box::new(eq), Box::new(rhs))
                 })
@@ -117,16 +123,16 @@ impl Parser {
 
     fn parse_equation(&mut self) -> CalcrResult<Ast> {
         let mut lhs = try!(self.parse_product());
-        while self.next_tok_matches(|val| *val == Op(Plus) || *val == Op(Minus)) {
+        while self.next_tok_matches(|val| *val == Op(TokOp::Plus) || *val == Op(TokOp::Minus)) {
             let Token { val: tok_val, span: tok_span } = self.consume_tok();
             let rhs = try!(self.parse_product());
             lhs = Ast {
-                val: AstVal::Op(tok_val.op().unwrap()),
+                val: AstVal::Op(tok_val.op().unwrap().into()),
                 span: tok_span,
                 branches: Binary(Box::new(lhs), Box::new(rhs)),
             }
         }
-        if self.next_tok_is(ParenClose) && self.paren_level < 1 {
+        if self.next_tok_matches(|val| val.is_close_delim()) && self.paren_level < 1 {
             let Token { val: _, span: tok_span } = self.consume_tok();
             Err(CalcrError {
                 desc: format!("Missing opening parentheses"),
@@ -145,11 +151,11 @@ impl Parser {
 
     fn parse_product(&mut self) -> CalcrResult<Ast> {
         let mut lhs = try!(self.parse_factor());
-        while self.next_tok_matches(|val| *val == Op(Mult) || *val == Op(Div)) {
+        while self.next_tok_matches(|val| *val == Op(TokOp::Mult) || *val == Op(TokOp::Div)) {
             let Token { val: tok_val, span: tok_span } = self.consume_tok();
             let rhs = try!(self.parse_factor());
             lhs = Ast {
-                val: AstVal::Op(tok_val.op().unwrap()),
+                val: AstVal::Op(tok_val.op().unwrap().into()),
                 span: tok_span,
                 branches: Binary(Box::new(lhs), Box::new(rhs)),
             };
@@ -160,21 +166,21 @@ impl Parser {
     fn parse_factor(&mut self) -> CalcrResult<Ast> {
         // when we lex we only store `Minus`s since we do not have any context there,
         // however we know if we see a `Minus` now, then it is a `Neg`.
-        if self.next_tok_is(Op(Minus)) {
+        if self.next_tok_is(Op(TokOp::Minus)) {
             let tok_span = self.consume_tok().span;
             let rhs = try!(self.parse_factor());
             Ok(Ast {
-                val: AstVal::Op(Neg),
+                val: AstVal::Op(AstOp::Neg),
                 span: tok_span,
                 branches: Unary(Box::new(rhs)),
             })
         } else {
             let lhs = try!(self.parse_exponent());
-            if self.next_tok_is(Op(Pow)) {
+            if self.next_tok_is(Op(TokOp::Pow)) {
                 let tok_span = self.consume_tok().span;
                 let rhs = try!(self.parse_factor());
                 Ok(Ast {
-                    val: AstVal::Op(Pow),
+                    val: AstVal::Op(AstOp::Pow),
                     span: tok_span,
                     branches: Binary(Box::new(lhs), Box::new(rhs)),
                 })
@@ -187,10 +193,10 @@ impl Parser {
     fn parse_exponent(&mut self) -> CalcrResult<Ast> {
         let mut out = try!(self.parse_number());
 
-        while self.next_tok_is(Op(Fact)) {
+        while self.next_tok_is(Op(TokOp::Fact)) {
             let tok_span = self.consume_tok().span;
             out = Ast {
-                val: AstVal::Op(Fact),
+                val: AstVal::Op(AstOp::Fact),
                 span: tok_span,
                 branches: Unary(Box::new(out)),
             };
@@ -214,10 +220,10 @@ impl Parser {
                     };
                     if let AstVal::Func(_) = val {
                         // it's a function so we need to grab its argument
-                        if self.next_tok_is(ParenOpen) {
+                        if self.next_tok_matches(|val| val.is_open_delim()) {
                             // since we know the next token is an open paren, we use
                             // this function to get its AST
-                            let arg = try!(self.parse_equation());
+                            let arg = try!(self.parse_number());
                             Ok(Ast {
                                 val: val,
                                 span: tok_span,
@@ -225,7 +231,7 @@ impl Parser {
                             })
                         } else {
                             Err(CalcrError {
-                                desc: "Missing opening parentheses after function".to_string(),
+                                desc: "Missing opening delimiter after function".to_string(),
                                 span: Some(tok_span),
                             })
                         }
@@ -237,12 +243,12 @@ impl Parser {
                         })
                     }
                 },
-                ParenOpen => {
+                OpenDelim(kind) => {
                     self.paren_level += 1;
                     let eq = try!(self.parse_equation());
-                    if !self.next_tok_is(ParenClose) {
+                    if !self.next_tok_is(CloseDelim(kind)) {
                         Err(CalcrError {
-                            desc: "Missing closing parentheses".to_string(),
+                            desc: "Missing matching closing delimiter".to_string(),
                             span: Some(tok_span),
                         })
                     } else {
