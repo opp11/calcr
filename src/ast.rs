@@ -36,8 +36,7 @@ impl Ast {
     }
 
     pub fn get_total_span(&self) -> (usize, usize) {
-        if self.is_leaf() || self.val == AstVal::Paren {
-            // since parens always encapsulates their child, we can just stop here
+        if self.is_leaf() {
             self.span
         } else {
             self.branches.iter()
@@ -55,7 +54,6 @@ pub enum AstVal {
     Num(f64),
     LastResult,
     Name(String),
-    Paren,
 }
 
 #[derive(Debug, PartialEq)]

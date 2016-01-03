@@ -44,7 +44,6 @@ use token::Token;
 use token::OpKind as TokOp;
 use token::TokVal;
 use token::TokVal::*;
-use token::DelimKind::*;
 
 pub fn parse_tokens(tokens: Vec<Token>) -> CalcrResult<Ast> {
     let end_pos = tokens.last().and_then(|tok| Some(tok.span.1)).unwrap_or(0);
@@ -252,13 +251,9 @@ impl Parser {
                             span: Some(tok_span),
                         })
                     } else {
+                        self.consume_tok();
                         self.paren_level -= 1;
-                        let close_paren_span = self.consume_tok().span;
-                        Ok(Ast {
-                            val: AstVal::Paren,
-                            span: (tok_span.0, close_paren_span.1),
-                            branches: vec!(eq),
-                        })
+                        Ok(eq)
                     }
                 },
                 AbsDelim => {

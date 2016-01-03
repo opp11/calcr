@@ -59,7 +59,6 @@ impl Interpreter {
             Const(ref c) => self.eval_const(c),
             Num(ref n) => Ok(*n),
             LastResult => Ok(self.last_result),
-            Paren => self.eval_eq(try!(ast.get_unary_branch())),
             Name(ref name) => {
                 if let Some(val) = self.vars.get(name) {
                     Ok(*val)
