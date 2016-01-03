@@ -135,7 +135,7 @@ impl Parser {
         if self.next_tok_matches(|val| val.is_close_delim()) && self.paren_level < 1 {
             let Token { val: _, span: tok_span } = self.consume_tok();
             Err(CalcrError {
-                desc: format!("Missing opening parentheses"),
+                desc: format!("Missing matching opening delimiter"),
                 span: Some(tok_span),
             })
         } else if self.next_tok_is(AbsDelim) && self.abs_level < 1 {
