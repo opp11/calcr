@@ -5,7 +5,6 @@ use ast::AstVal::*;
 use ast::FuncKind::*;
 use ast::OpKind::*;
 use ast::ConstKind::*;
-use ast::AstBranch::*;
 use lexer::lex_equation;
 use parser::parse_tokens;
 use errors::{CalcrResult, CalcrError};
@@ -36,21 +35,15 @@ impl Interpreter {
 
     fn eval_expr(&mut self, ast: &Ast) -> CalcrResult<Option<f64>> {
         if ast.val == Op(Assign) {
-            if let Binary(ref name_ast, ref val_ast) = ast.branches {
-                if let Name(ref name) = name_ast.val {
-                    let val = try!(self.eval_eq(val_ast));
-                    self.vars.insert(name.clone(), val);
-                    Ok(None)
-                } else {
-                    Err(CalcrError {
-                        desc: "Interal error - expected Assign to have Name in left branch"
-                              .to_string(),
-                        span: None,
-                    })
-                }
+            let (lhs, rhs) = try!(ast.get_binary_branches());
+            if let Name(ref name) = lhs.val {
+                let val = try!(self.eval_eq(rhs));
+                self.vars.insert(name.clone(), val);
+                Ok(None)
             } else {
                 Err(CalcrError {
-                    desc: "Interal error - expected Assign to have binary branch".to_string(),
+                    desc: "Interal error - expected Assign to have Name in left branch"
+                          .to_string(),
                     span: None,
                 })
             }
@@ -66,6 +59,7 @@ impl Interpreter {
             Const(ref c) => self.eval_const(c),
             Num(ref n) => Ok(*n),
             LastResult => Ok(self.last_result),
+            Paren => self.eval_eq(try!(ast.get_unary_branch())),
             Name(ref name) => {
                 if let Some(val) = self.vars.get(name) {
                     Ok(*val)
@@ -76,74 +70,59 @@ impl Interpreter {
                     })
                 }
             }
-            Paren => {
-                if let Unary(ref child) = ast.branches {
-                    self.eval_eq(child)
-                } else {
+        }
+    }
+
+    fn eval_func(&mut self, f: &FuncKind, ast: &Ast) -> CalcrResult<f64> {
+        let child = try!(ast.get_unary_branch());
+        let arg = try!(self.eval_eq(child));
+        match *f {
+            Sin => Ok(arg.sin()),
+            Cos => Ok(arg.cos()),
+            Tan => Ok(arg.tan()),
+            Asin => Ok(arg.asin()),
+            Acos => Ok(arg.acos()),
+            Atan => Ok(arg.atan()),
+            Abs => Ok(arg.abs()),
+            Exp => Ok(arg.exp()),
+            Sqrt => {
+                if arg < 0.0 {
                     Err(CalcrError {
-                        desc: "Internal error - expected Paren to have unary branch".to_string(),
-                        span: None,
+                        desc: "Cannot take the square root of a negative number".to_string(),
+                        span: Some(child.get_total_span()),
                     })
+                } else {
+                    Ok(arg.sqrt())
+                }
+            },
+            Ln => {
+                if arg <= 0.0 {
+                    Err(CalcrError {
+                        desc: "Cannot take the logarithm of a non-positive number".to_string(),
+                        span: Some(child.get_total_span()),
+                    })
+                } else {
+                    Ok(arg.ln())
+                }
+            },
+            Log =>  {
+                if arg <= 0.0 {
+                    Err(CalcrError {
+                        desc: "Cannot take the logarithm of a non-positive number".to_string(),
+                        span: Some(child.get_total_span()),
+                    })
+                } else {
+                    Ok(arg.log10())
                 }
             },
         }
     }
 
-    fn eval_func(&mut self, f: &FuncKind, ast: &Ast) -> CalcrResult<f64> {
-        if let Unary(ref child) = ast.branches {
-            let arg = try!(self.eval_eq(&*child));
-            match *f {
-                Sin => Ok(arg.sin()),
-                Cos => Ok(arg.cos()),
-                Tan => Ok(arg.tan()),
-                Asin => Ok(arg.asin()),
-                Acos => Ok(arg.acos()),
-                Atan => Ok(arg.atan()),
-                Abs => Ok(arg.abs()),
-                Exp => Ok(arg.exp()),
-                Sqrt => {
-                    if arg < 0.0 {
-                        Err(CalcrError {
-                            desc: "Cannot take the square root of a negative number".to_string(),
-                            span: Some(child.get_total_span()),
-                        })
-                    } else {
-                        Ok(arg.sqrt())
-                    }
-                },
-                Ln => {
-                    if arg <= 0.0 {
-                        Err(CalcrError {
-                            desc: "Cannot take the logarithm of a non-positive number".to_string(),
-                            span: Some(child.get_total_span()),
-                        })
-                    } else {
-                        Ok(arg.ln())
-                    }
-                },
-                Log =>  {
-                    if arg <= 0.0 {
-                        Err(CalcrError {
-                            desc: "Cannot take the logarithm of a non-positive number".to_string(),
-                            span: Some(child.get_total_span()),
-                        })
-                    } else {
-                        Ok(arg.log10())
-                    }
-                },
-            }
-        } else {
-            Err(CalcrError {
-                desc: "Interal error - expected AstFunc to have unary branch".to_string(),
-                span: None,
-            })
-        }
-    }
-
     fn eval_op(&mut self, op: &OpKind, ast: &Ast) -> CalcrResult<f64> {
-        match ast.branches {
-            Binary(ref lhs, ref rhs) => {
-                let (lhs, rhs) = (try!(self.eval_eq(&*lhs)), try!(self.eval_eq(&*rhs)));
+        match ast.branches.len() {
+            2 => {
+                let (lhs, rhs) = ast.get_binary_branches().unwrap();
+                let (lhs, rhs) = (try!(self.eval_eq(lhs)), try!(self.eval_eq(rhs)));
                 match *op {
                     Plus => Ok(lhs + rhs),
                     Minus => Ok(lhs - rhs),
@@ -156,8 +135,9 @@ impl Interpreter {
                     })
                 }
             },
-            Unary(ref child) => {
-                let val = try!(self.eval_eq(&*child));
+            1 => {
+                let child = ast.get_unary_branch().unwrap();
+                let val = try!(self.eval_eq(child));
                 match *op {
                     Neg => Ok(-val),
                     Fact => self.evalf_fact(val, child),
@@ -167,8 +147,8 @@ impl Interpreter {
                     })
                 }
             },
-            Leaf => Err(CalcrError {
-                desc: "Internal error - AstOp nodes may not be leaf nodes".to_string(),
+            _ => Err(CalcrError {
+                desc: "Internal error - AstOp nodes must have 1 or 2 branches".to_string(),
                 span: None,
             })
         }

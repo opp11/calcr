@@ -37,7 +37,7 @@ use errors::{CalcrResult, CalcrError};
 use ast::Ast;
 use ast::AstVal;
 use ast::OpKind as AstOp;
-use ast::AstBranch::*;
+//use ast::AstBranch::*;
 use ast::FuncKind::*;
 use ast::ConstKind::*;
 use token::Token;
@@ -92,12 +92,12 @@ impl Parser {
             Ok(eq)
         } else if self.next_tok_is(Op(TokOp::Assign)) {
             self.consume_tok();
-            if let Ast { val: AstVal::Name(_), span: _, branches: Leaf } = eq {
+            if let AstVal::Name(_) = eq.val {
                 let rhs = try!(self.parse_equation());
                 Ok(Ast {
                     val: AstVal::Op(AstOp::Assign),
                     span: (eq.span.0, rhs.span.1),
-                    branches: Binary(Box::new(eq), Box::new(rhs))
+                    branches: vec!(eq, rhs)
                 })
             } else {
                 let assign_target = match eq {
@@ -105,7 +105,7 @@ impl Parser {
                     Ast { val: AstVal::Const(_), span: _, branches: _ } => "constant",
                     Ast { val: AstVal::Num(_), span: _, branches: _ } => "number",
                     Ast { val: AstVal::LastResult, span: _, branches: _ } => "constant",
-                    Ast { val: _, span: _, branches: _ } => "equtation",
+                    _ => "equtation", // TODO: Make this case more nuanced
                 };
                 Err(CalcrError {
                     desc: format!("Cannot assign to {}", assign_target),
@@ -129,7 +129,7 @@ impl Parser {
             lhs = Ast {
                 val: AstVal::Op(tok_val.op().unwrap().into()),
                 span: tok_span,
-                branches: Binary(Box::new(lhs), Box::new(rhs)),
+                branches: vec!(lhs, rhs),
             }
         }
         if self.next_tok_matches(|val| val.is_close_delim()) && self.paren_level < 1 {
@@ -157,7 +157,7 @@ impl Parser {
             lhs = Ast {
                 val: AstVal::Op(tok_val.op().unwrap().into()),
                 span: tok_span,
-                branches: Binary(Box::new(lhs), Box::new(rhs)),
+                branches: vec!(lhs, rhs),
             };
         }
         Ok(lhs)
@@ -172,7 +172,7 @@ impl Parser {
             Ok(Ast {
                 val: AstVal::Op(AstOp::Neg),
                 span: tok_span,
-                branches: Unary(Box::new(rhs)),
+                branches: vec!(rhs),
             })
         } else {
             let lhs = try!(self.parse_exponent());
@@ -182,7 +182,7 @@ impl Parser {
                 Ok(Ast {
                     val: AstVal::Op(AstOp::Pow),
                     span: tok_span,
-                    branches: Binary(Box::new(lhs), Box::new(rhs)),
+                    branches: vec!(lhs, rhs),
                 })
             } else {
                 Ok(lhs)
@@ -198,7 +198,7 @@ impl Parser {
             out = Ast {
                 val: AstVal::Op(AstOp::Fact),
                 span: tok_span,
-                branches: Unary(Box::new(out)),
+                branches: vec!(out),
             };
         }
         Ok(out)
@@ -227,7 +227,7 @@ impl Parser {
                             Ok(Ast {
                                 val: val,
                                 span: tok_span,
-                                branches: Unary(Box::new(arg)),
+                                branches: vec!(arg) ,
                             })
                         } else {
                             Err(CalcrError {
@@ -239,7 +239,7 @@ impl Parser {
                         Ok(Ast {
                             val: val,
                             span: tok_span,
-                            branches: Leaf,
+                            branches: vec!(),
                         })
                     }
                 },
@@ -257,7 +257,7 @@ impl Parser {
                         Ok(Ast {
                             val: AstVal::Paren,
                             span: (tok_span.0, close_paren_span.1),
-                            branches: Unary(Box::new(eq)),
+                            branches: vec!(eq),
                         })
                     }
                 },
@@ -275,7 +275,7 @@ impl Parser {
                         Ok(Ast {
                             val: AstVal::Func(Abs),
                             span: (tok_span.0, close_delim_span.1),
-                            branches: Unary(Box::new(eq)),
+                            branches: vec!(eq),
                         })
                     }
                 },
@@ -283,7 +283,7 @@ impl Parser {
                     Ok(Ast {
                         val: AstVal::Num(num),
                         span: tok_span,
-                        branches: Leaf,
+                        branches: vec!(),
                     })
                 },
                 _ => Err(CalcrError {

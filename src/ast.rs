@@ -1,43 +1,50 @@
 use std::cmp::{min, max};
+use errors::{CalcrResult, CalcrError};
 
 #[derive(Debug, PartialEq)]
 pub struct Ast {
     pub val: AstVal,
     pub span: (usize, usize),
-    pub branches: AstBranch,
+    pub branches: Vec<Ast>,
 }
 
 impl Ast {
+    pub fn is_leaf(&self) -> bool {
+        self.branches.is_empty()
+    }
+
+    pub fn get_unary_branch(&self) -> CalcrResult<&Ast> {
+        if self.branches.len() == 1 {
+            Ok(&self.branches[0])
+        } else {
+            Err(CalcrError {
+                desc: "Internal error - expected AST to have 1 branch".to_string(),
+                span: Some(self.span),
+            })
+        }
+    }
+
+    pub fn get_binary_branches(&self) -> CalcrResult<(&Ast, &Ast)> {
+        if self.branches.len() == 2 {
+            Ok((&self.branches[0], &self.branches[1]))
+        } else {
+            Err(CalcrError {
+                desc: "Internal error - expected AST to have 2 branches".to_string(),
+                span: Some(self.span),
+            })
+        }
+    }
+
     pub fn get_total_span(&self) -> (usize, usize) {
-        if self.val == AstVal::Paren {
+        if self.is_leaf() || self.val == AstVal::Paren {
             // since parens always encapsulates their child, we can just stop here
             self.span
         } else {
-            match self.branches {
-                AstBranch::Binary(ref lhs, ref rhs) => {
-                    let lhs_span = lhs.get_total_span();
-                    let rhs_span = rhs.get_total_span();
-                    let begin = min(self.span.0, lhs_span.0);
-                    let end = max(self.span.1, rhs_span.1);
-                    (begin, end)
-                },
-                AstBranch::Unary(ref child) => {
-                    let child_span = child.get_total_span();
-                    let begin = min(self.span.0, child_span.0);
-                    let end = max(self.span.1, child_span.1);
-                    (begin, end)
-                },
-                AstBranch::Leaf => self.span,
-            }
+            self.branches.iter()
+                         .map(|br| br.get_total_span())
+                         .fold(self.span, |out, span| (min(out.0, span.0), max(out.1, span.1)))
         }
     }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum AstBranch {
-    Binary(Box<Ast>, Box<Ast>),
-    Unary(Box<Ast>),
-    Leaf,
 }
 
 #[derive(Debug, PartialEq)]
