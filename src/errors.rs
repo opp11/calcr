@@ -18,7 +18,7 @@ impl CalcrError {
             println!("  {}", input);
             print!("  ");
         } else {
-            print!("  ");
+            print!("   ");
         }
         for _ in 0..begin {
             print!(" ");
