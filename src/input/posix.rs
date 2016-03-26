@@ -281,7 +281,7 @@ impl InputHandler for PosixInputHandler {
             Key::Esc => InputCmd::Quit,
             Key::Enter => {
                 let cmd = self.line_buf[self.line_idx].clone();
-                if cmd == "quit" {
+                if cmd == "quit" || cmd == "exit" {
                     InputCmd::Quit
                 } else {
                     self.line_hist.push(cmd.clone());
