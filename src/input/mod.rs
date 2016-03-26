@@ -1,8 +1,10 @@
 use std::io;
 
 pub use self::posix::PosixInputHandler;
+pub use self::default::DefaultInputHandler;
 
 mod posix;
+mod default;
 
 const CMD_PROMPT: &'static str = ">> ";
 
